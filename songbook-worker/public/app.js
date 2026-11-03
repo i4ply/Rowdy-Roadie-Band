@@ -118,6 +118,11 @@ function startEdit(song, row) {
       'aria-label': 'YouTube link',
       placeholder: 'YouTube link',
     }),
+    signature: makeInput(song.timeSignature, 'row-input sig', {
+      maxlength: '5',
+      'aria-label': 'Bar length, like 3/4',
+      placeholder: '4/4',
+    }),
   };
 
   const editRow = document.createElement('tr');
@@ -126,7 +131,15 @@ function startEdit(song, row) {
     const cell = document.createElement('td');
     if (name === 'key' || name === 'bpm') cell.className = 'num';
     if (name === 'youtubeUrl') cell.className = 'yt';
-    cell.append(fields[name]);
+    if (name === 'bpm') {
+      // Tempo and bar length belong together, in the same cell.
+      const pair = document.createElement('span');
+      pair.className = 'bpm-pair';
+      pair.append(fields.bpm, fields.signature);
+      cell.append(pair);
+    } else {
+      cell.append(fields[name]);
+    }
     editRow.append(cell);
   }
 
@@ -155,6 +168,7 @@ function startEdit(song, row) {
           artist: fields.artist.value.trim(),
           key: fields.key.value.trim(),
           bpm: fields.bpm.value.trim(),
+          timeSignature: fields.signature.value.trim(),
           youtubeUrl: fields.youtubeUrl.value.trim(),
         }),
       });
@@ -235,20 +249,32 @@ function addedCell(song) {
 // Clicking a tempo flashes the number once per beat, so the pulse carries the
 // feel of the song rather than just printing the number. One at a time, and
 // clicking the same tempo again stops it.
-// One bar of four beats. The downbeat flashes larger and fades further than the
-// other three, so the pulse says where the bar starts rather than just how fast
-// it is. Two bars in total, then it stops.
-const BEAT_KEYFRAMES = [
-  { offset: 0, transform: 'scale(1.45)', opacity: 0.2 },
-  { offset: 0.1, transform: 'scale(1)', opacity: 1 },
-  { offset: 0.25, transform: 'scale(1.16)', opacity: 0.45 },
-  { offset: 0.35, transform: 'scale(1)', opacity: 1 },
-  { offset: 0.5, transform: 'scale(1.16)', opacity: 0.45 },
-  { offset: 0.6, transform: 'scale(1)', opacity: 1 },
-  { offset: 0.75, transform: 'scale(1.16)', opacity: 0.45 },
-  { offset: 0.85, transform: 'scale(1)', opacity: 1 },
-  { offset: 1, transform: 'scale(1)', opacity: 1 },
-];
+// How many beats a bar of this song holds. The band writes it as a time
+// signature ("3/4", "6/8") and the top number is the count; anything unset is
+// common time, so the whole list works before a single signature is entered.
+function beatsPerBar(song) {
+  const match = String(song.timeSignature ?? '').match(/^(\d{1,2})\s*\/\s*\d{1,2}$/);
+  const beats = match ? Number(match[1]) : 4;
+  return beats >= 2 && beats <= 12 ? beats : 4;
+}
+
+// One bar: the downbeat flashes larger and fades further than the rest, so the
+// pulse says where the bar starts rather than just how fast it is.
+function beatKeyframes(beats) {
+  const step = 1 / beats;
+  const frames = [];
+  for (let index = 0; index < beats; index += 1) {
+    const downbeat = index === 0;
+    frames.push({
+      offset: index * step,
+      transform: downbeat ? 'scale(1.45)' : 'scale(1.16)',
+      opacity: downbeat ? 0.2 : 0.45,
+    });
+    frames.push({ offset: index * step + step * 0.4, transform: 'scale(1)', opacity: 1 });
+  }
+  frames.push({ offset: 1, transform: 'scale(1)', opacity: 1 });
+  return frames;
+}
 
 let beatAnimation = null;
 let beatButton = null;
@@ -262,13 +288,15 @@ function stopBeat() {
   beatButton = null;
 }
 
-function toggleBeat(button, bpm) {
+function toggleBeat(button, song) {
   if (beatButton === button) {
     stopBeat();
     return;
   }
   stopBeat();
-  if (!bpm) return;
+  if (!song.bpm) return;
+
+  const beats = beatsPerBar(song);
 
   beatButton = button;
   button.classList.add('beating');
@@ -280,10 +308,10 @@ function toggleBeat(button, bpm) {
     return;
   }
 
-  const beat = 60000 / bpm;
-  const bar = beat * 4;
+  const beat = 60000 / song.bpm;
+  const bar = beat * beats;
 
-  beatAnimation = button.animate(BEAT_KEYFRAMES, {
+  beatAnimation = button.animate(beatKeyframes(beats), {
     duration: bar,
     iterations: 2,
     easing: 'ease-out',
@@ -295,11 +323,12 @@ function bpmButton(song) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'bpm-beat';
+  const beats = beatsPerBar(song);
   button.textContent = String(song.bpm);
-  button.title = `Flash at ${song.bpm} BPM`;
-  button.setAttribute('aria-label', `Flash at ${song.bpm} BPM`);
+  button.title = `Flash ${beats} beats per bar at ${song.bpm} BPM`;
+  button.setAttribute('aria-label', `Flash ${beats} beats per bar at ${song.bpm} BPM`);
   button.setAttribute('aria-pressed', 'false');
-  button.addEventListener('click', () => toggleBeat(button, song.bpm));
+  button.addEventListener('click', () => toggleBeat(button, song));
   return button;
 }
 
@@ -324,6 +353,14 @@ function songRow(song) {
   bpm.className = 'num bpm';
   if (song.bpm) {
     bpm.append(bpmButton(song));
+    // Only worth showing when the song is not in common time.
+    if (song.timeSignature) {
+      const signature = document.createElement('span');
+      signature.className = 'signature';
+      signature.textContent = song.timeSignature;
+      signature.title = `Bars of ${beatsPerBar(song)} beats`;
+      bpm.append(signature);
+    }
   } else {
     bpm.textContent = '—';
   }

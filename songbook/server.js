@@ -193,6 +193,21 @@ async function handleUpdateSong(id, request, response) {
     patch.youtubeUrl = value;
   }
 
+  if ('timeSignature' in body) {
+    const value = String(body.timeSignature ?? '').trim();
+    if (value === '') {
+      patch.timeSignature = null;
+    } else {
+      const match = value.match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+      const beats = match ? Number(match[1]) : 0;
+      const unit = match ? Number(match[2]) : 0;
+      if (!match || beats < 2 || beats > 12 || ![2, 4, 8, 16].includes(unit)) {
+        return sendJson(response, 400, { error: 'Bar length must look like 4/4, 3/4 or 6/8.' });
+      }
+      patch.timeSignature = `${beats}/${unit}`;
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return sendJson(response, 400, { error: 'Nothing to update.' });
   }

@@ -884,3 +884,20 @@ button.move:disabled {
     outline-offset: 2px;
   }
 }
+
+/* Bar length sits beside the tempo, and is set in the same cell while editing. */
+.signature {
+  margin-left: 0.3rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.bpm-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.row-input.sig {
+  width: 3.4rem;
+}

@@ -21,6 +21,7 @@ db.exec(`
     album TEXT,
     musical_key TEXT,
     bpm INTEGER,
+    time_signature TEXT,
     isrc TEXT,
     spotify_url TEXT,
     youtube_url TEXT,
@@ -59,6 +60,13 @@ try {
   // Already present.
 }
 
+// Bar length per song arrived later too; unset means common time.
+try {
+  db.exec('ALTER TABLE songs ADD COLUMN time_signature TEXT');
+} catch {
+  // Already present.
+}
+
 const toSong = row => ({
   id: row.id,
   title: row.title,
@@ -66,6 +74,7 @@ const toSong = row => ({
   album: row.album,
   key: row.musical_key,
   bpm: row.bpm,
+  timeSignature: row.time_signature,
   isrc: row.isrc,
   spotifyUrl: row.spotify_url,
   youtubeUrl: row.youtube_url,
@@ -122,6 +131,7 @@ const EDITABLE_COLUMNS = {
   album: 'album',
   key: 'musical_key',
   bpm: 'bpm',
+  timeSignature: 'time_signature',
   youtubeUrl: 'youtube_url',
 };
 

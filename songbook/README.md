@@ -90,16 +90,18 @@ edited stamp, so `created_at` never changes underneath a row. The list is
 newest-first by default, and the column sorts like the rest: one click for
 oldest-first, a second for newest, a third back to the default order.
 
-### Feeling the tempo
+### Feeling the tempoClick a BPM number and it flashes once per beat at that tempo — two bars, then it
+stops, so you can see the feel before counting the band in. The first beat of each
+bar hits harder than the rest, so the flash shows where the bar starts. While it
+runs the number is red, so a glance across the list finds the tempo you are
+counting. Click it again to stop early, or click another tempo to switch. With
+"reduce motion" turned on in the operating system it rings once in red instead of
+pulsing. Songs with no BPM stay plain text and are not clickable.
 
-Click a BPM number and it flashes once per beat at that tempo — two bars of four,
-then it stops, so you can see the feel before counting the band in. The first beat
-of each bar hits harder than the other three, so the flash shows where the bar
-starts. While it runs the number is red, so a glance across the list finds the
-tempo you are counting. Click it again to stop early, or click another tempo to
-switch. With "reduce motion"
-turned on in the operating system it rings once in red instead of pulsing. Songs
-with no BPM stay plain text and are not clickable.
+A bar is four beats unless the song says otherwise. Use **Edit** on a row and type
+the bar length in the small box beside BPM — `3/4` for a waltz, `6/8` for a
+shuffle — and the pulse groups to the top number. The signature then shows beside
+the tempo in the list, and blank means common time.
 
 ### Searching
 
