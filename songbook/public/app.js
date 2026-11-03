@@ -24,6 +24,7 @@ const exportCsv = document.getElementById('export-csv');
 const exportPrint = document.getElementById('export-print');
 const findYouTubeButton = document.getElementById('find-youtube');
 const searchInput = document.getElementById('search');
+const muteButton = document.getElementById('mute-click');
 
 const MAX_BATCH = 200;
 
@@ -83,10 +84,30 @@ function makeInput(value, className, attributes = {}) {
   return field;
 }
 
-const describe = song =>
-  [song.key ? `key ${song.key}` : null, song.bpm ? `${song.bpm} BPM` : null]
-    .filter(Boolean)
-    .join(' · ') || '—';
+// A setlist row carries the same tempo button as the list, so a count-in can
+// start from the running order instead of scrolling back to the song.
+function describeParts(song) {
+  const parts = [];
+  if (song.key) parts.push(`key ${song.key}`);
+
+  if (song.bpm) {
+    const tempo = document.createElement('span');
+    tempo.className = 'setlist-bpm';
+    tempo.append(bpmButton(song));
+
+    if (song.timeSignature) {
+      const signature = document.createElement('span');
+      signature.className = 'signature';
+      signature.textContent = song.timeSignature;
+      signature.title = `${beatsPerBar(song)} to the bar`;
+      tempo.append(signature);
+    }
+    parts.push(tempo);
+  }
+
+  if (!parts.length) return ['—'];
+  return parts.flatMap((part, index) => (index === 0 ? [part] : [' · ', part]));
+}
 
 // --- Songs ---------------------------------------------------------------
 
@@ -249,37 +270,104 @@ function addedCell(song) {
 // Clicking a tempo flashes the number once per beat, so the pulse carries the
 // feel of the song rather than just printing the number. One at a time, and
 // clicking the same tempo again stops it.
-// How many beats a bar of this song holds. The band writes it as a time
-// signature ("3/4", "6/8") and the top number is the count; anything unset is
-// common time, so the whole list works before a single signature is entered.
+// How many pulses a bar of this song gets. The band writes the bar as a time
+// signature ("3/4", "6/8"); compound metres like 6/8, 9/8 and 12/8 are counted
+// in dotted beats — two, three and four — the way a band counts a shuffle in,
+// not in six or nine. Anything unset is common time, so the list works before
+// any signature is entered.
 function beatsPerBar(song) {
-  const match = String(song.timeSignature ?? '').match(/^(\d{1,2})\s*\/\s*\d{1,2}$/);
-  const beats = match ? Number(match[1]) : 4;
-  return beats >= 2 && beats <= 12 ? beats : 4;
+  const match = String(song.timeSignature ?? '').match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+  if (!match) return 4;
+
+  const top = Number(match[1]);
+  const bottom = Number(match[2]);
+  if (top < 2 || top > 12) return 4;
+
+  // 6/8 -> 2, 9/8 -> 3, 12/8 -> 4. Simple metres keep the top number.
+  if (bottom >= 8 && top % 3 === 0) return top / 3;
+  return top;
 }
 
-// One bar: the downbeat flashes larger and fades further than the rest, so the
-// pulse says where the bar starts rather than just how fast it is.
+// Every beat flashes the same, like a click track: no accent, so what you see is
+// the pulse itself rather than where the bar starts.
 function beatKeyframes(beats) {
   const step = 1 / beats;
   const frames = [];
   for (let index = 0; index < beats; index += 1) {
-    const downbeat = index === 0;
-    frames.push({
-      offset: index * step,
-      transform: downbeat ? 'scale(1.45)' : 'scale(1.16)',
-      opacity: downbeat ? 0.2 : 0.45,
-    });
-    frames.push({ offset: index * step + step * 0.4, transform: 'scale(1)', opacity: 1 });
+    frames.push({ offset: index * step, transform: 'scale(1.3)', opacity: 0.25 });
+    frames.push({ offset: index * step + step * 0.45, transform: 'scale(1)', opacity: 1 });
   }
   frames.push({ offset: 1, transform: 'scale(1)', opacity: 1 });
   return frames;
+}
+
+// How many bars one press plays — the flash and the click use the same count.
+const BARS = 4;
+
+let audio = null;
+let clickNodes = [];
+
+// A browser only allows audio after a gesture, and a click on the tempo is one.
+function clickContext() {
+  const Ctor = window.AudioContext ?? window.webkitAudioContext;
+  if (!Ctor) return null;
+  audio ??= new Ctor();
+  if (audio.state === 'suspended') audio.resume();
+  return audio;
+}
+
+// Ticks are scheduled ahead of time, so they keep time with the flash instead of
+// drifting with the event loop.
+function scheduleClicks(bpm, count) {
+  const context = clickContext();
+  if (!context) return;
+
+  const beat = 60 / bpm;
+  const start = context.currentTime + 0.04;
+
+  for (let index = 0; index < count; index += 1) {
+    const at = start + index * beat;
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, at);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.22, at + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
+
+    osc.connect(gain);
+    gain.connect(context.destination);
+    osc.start(at);
+    osc.stop(at + 0.06);
+    clickNodes.push(osc);
+  }
+}
+
+function stopClicks() {
+  for (const node of clickNodes) {
+    try {
+      node.stop();
+    } catch {
+      // Already finished on its own.
+    }
+  }
+  clickNodes = [];
+}
+
+// Muted keeps the flash and drops the sound; the choice is remembered by the browser.
+let muted = false;
+
+function setMuted(next) {
+  muted = next;
+  stopClicks();
 }
 
 let beatAnimation = null;
 let beatButton = null;
 
 function stopBeat() {
+  stopClicks();
   if (beatAnimation) beatAnimation.cancel();
   beatAnimation = null;
   if (!beatButton) return;
@@ -297,23 +385,26 @@ function toggleBeat(button, song) {
   if (!song.bpm) return;
 
   const beats = beatsPerBar(song);
+  const beat = 60000 / song.bpm;
+  const bar = beat * beats;
 
   beatButton = button;
   button.classList.add('beating');
   button.setAttribute('aria-pressed', 'true');
 
+  // The tick is the same count-in a drummer would hear, unless it is muted.
+  if (!muted) scheduleClicks(song.bpm, beats * BARS);
+
   // A moving pulse is not for everyone; a still ring says the same thing.
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-    window.setTimeout(stopBeat, 1200);
+    window.setTimeout(stopBeat, bar * BARS);
     return;
   }
 
-  const beat = 60000 / song.bpm;
-  const bar = beat * beats;
-
+  // Four bars: long enough to settle into the feel before counting the band in.
   beatAnimation = button.animate(beatKeyframes(beats), {
     duration: bar,
-    iterations: 2,
+    iterations: BARS,
     easing: 'ease-out',
   });
   beatAnimation.onfinish = stopBeat;
@@ -325,8 +416,8 @@ function bpmButton(song) {
   button.className = 'bpm-beat';
   const beats = beatsPerBar(song);
   button.textContent = String(song.bpm);
-  button.title = `Flash ${beats} beats per bar at ${song.bpm} BPM`;
-  button.setAttribute('aria-label', `Flash ${beats} beats per bar at ${song.bpm} BPM`);
+  button.title = `Click ${beats} to the bar at ${song.bpm} BPM`;
+  button.setAttribute('aria-label', `Click ${beats} to the bar at ${song.bpm} BPM`);
   button.setAttribute('aria-pressed', 'false');
   button.addEventListener('click', () => toggleBeat(button, song));
   return button;
@@ -358,7 +449,7 @@ function songRow(song) {
       const signature = document.createElement('span');
       signature.className = 'signature';
       signature.textContent = song.timeSignature;
-      signature.title = `Bars of ${beatsPerBar(song)} beats`;
+      signature.title = `${beatsPerBar(song)} to the bar`;
       bpm.append(signature);
     }
   } else {
@@ -643,6 +734,8 @@ function renderExport() {
 }
 
 function renderSetlist() {
+  // A re-render replaces the rows the pulse was running on.
+  stopBeat();
   renderExport();
   setlistSongs.replaceChildren();
   const entries = activeSetlist?.songs ?? [];
@@ -669,7 +762,7 @@ function renderSetlist() {
 
     const meta = document.createElement('span');
     meta.className = 'setlist-meta';
-    meta.textContent = describe(entry.song);
+    meta.append(...describeParts(entry.song));
 
     const actions = document.createElement('span');
     actions.className = 'setlist-actions';
@@ -845,6 +938,37 @@ findYouTubeButton.addEventListener('click', async () => {
   );
   await loadSongs();
 });
+
+// --- Mute ----------------------------------------------------------------
+
+const MUTE_KEY = 'songbook.muted';
+
+function readMuted() {
+  try {
+    return window.localStorage.getItem(MUTE_KEY) === 'true';
+  } catch {
+    return false; // Private modes can refuse storage; the default is sound on.
+  }
+}
+
+function renderMute() {
+  muteButton.textContent = muted ? 'Unmute click' : 'Mute click';
+  muteButton.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  muteButton.title = muted ? 'The tempo flash is silent' : 'The tempo flash also clicks';
+}
+
+muteButton.addEventListener('click', () => {
+  setMuted(!muted);
+  try {
+    window.localStorage.setItem(MUTE_KEY, String(muted));
+  } catch {
+    // Nothing to remember this session.
+  }
+  renderMute();
+});
+
+setMuted(readMuted());
+renderMute();
 
 deleteSetlistButton.addEventListener('click', async () => {
   if (!activeSetlist) return;

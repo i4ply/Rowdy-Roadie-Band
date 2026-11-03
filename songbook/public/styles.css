@@ -901,3 +901,10 @@ button.move:disabled {
 .row-input.sig {
   width: 3.4rem;
 }
+
+/* The tempo button in a setlist row, with the bar length beside it. */
+.setlist-bpm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}

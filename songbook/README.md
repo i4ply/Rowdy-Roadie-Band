@@ -63,9 +63,12 @@ any setlist that used it. A song can only appear once per setlist.
 
 The **Download .txt** button saves the setlist as a numbered text list (title,
 artist, key, BPM) — the easiest thing to paste into a message. **Download .csv**
-opens in a spreadsheet. **Print or save as PDF** opens a clean printed layout in a
-new tab with a Print button, which is also how you get a PDF (choose “Save as
-PDF” in the print dialog). The file name comes from the setlist name.
+opens in a spreadsheet. **Print or save as PDF** opens a clean printed layout for a
+music stand — number, title, key and tempo, without the artist — in a new tab with
+a Print button, plus **A−** / **A+** buttons that resize the type (the size you pick
+is the size that prints); choose “Save as PDF” in the print dialog to keep a copy.
+The page prints with narrow margins to give the list more room. The file name comes
+from the setlist name.
 
 ### Batch adding
 
@@ -90,18 +93,29 @@ edited stamp, so `created_at` never changes underneath a row. The list is
 newest-first by default, and the column sorts like the rest: one click for
 oldest-first, a second for newest, a third back to the default order.
 
-### Feeling the tempoClick a BPM number and it flashes once per beat at that tempo — two bars, then it
-stops, so you can see the feel before counting the band in. The first beat of each
-bar hits harder than the rest, so the flash shows where the bar starts. While it
+### Feeling the tempoClick a BPM number and it flashes once per beat at that tempo — four bars, then it
+stops, so you can see the feel before counting the band in. Every beat flashes
+the same, like a click track — no accent — so what you see is the pulse itself. While it
 runs the number is red, so a glance across the list finds the tempo you are
-counting. Click it again to stop early, or click another tempo to switch. With
+counting. It also clicks: a short tick on every beat at the same tempo, so the list works
+as a click track without leaving the page. **Mute click** in the toolbar silences
+the sound and leaves the flash running; the choice is remembered in the browser.
+The same button sits in every setlist row, next to the key, so the count-in can
+start from the running order. Click it again to stop early, or click
+another tempo to switch, and the sound stops with the flash either way. With
 "reduce motion" turned on in the operating system it rings once in red instead of
 pulsing. Songs with no BPM stay plain text and are not clickable.
 
 A bar is four beats unless the song says otherwise. Use **Edit** on a row and type
 the bar length in the small box beside BPM — `3/4` for a waltz, `6/8` for a
-shuffle — and the pulse groups to the top number. The signature then shows beside
-the tempo in the list, and blank means common time.
+shuffle. The signature then shows beside the tempo in the list, and blank means
+common time.
+
+How many pulses a bar gets depends on the metre. Simple metres use the top number:
+`4/4` flashes four, `3/4` three, `2/4` two. Compound metres are counted in dotted
+beats, the way a band counts them in: `6/8` flashes two, `9/8` three, `12/8` four.
+So the BPM you enter is the pulse you see — a shuffle written 6/8 and played at 120
+flashes twice a bar, not six times.
 
 ### Searching
 

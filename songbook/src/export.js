@@ -83,8 +83,8 @@ export function setlistPrintPage(setlist) {
       <li>
         <span class="position">${index + 1}</span>
         <span class="title">${escapeHtml(entry.song.title)}</span>
-        <span class="artist">${escapeHtml(entry.song.artist)}</span>
-        <span class="meta">${escapeHtml(describe(entry.song))}</span>
+        <span class="key">${escapeHtml(entry.song.key ?? '—')}</span>
+        <span class="tempo">${entry.song.bpm ?? ''}</span>
       </li>`,
     )
     .join('');
@@ -101,14 +101,14 @@ export function setlistPrintPage(setlist) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(setlist.name)}</title>
     <style>
-      :root { color-scheme: light; }
+      :root { color-scheme: light; --reading-size: 17px; }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        padding: 2.5rem 1.5rem 4rem;
+        padding: 2.25rem 1.25rem 3.5rem;
         background: #f7f6f3;
         color: #16181d;
-        font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font: var(--reading-size)/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       }
       main { max-width: 42rem; margin: 0 auto; }
       .controls { display: flex; gap: 0.6rem; margin-bottom: 1.75rem; }
@@ -126,6 +126,14 @@ export function setlistPrintPage(setlist) {
         cursor: pointer;
       }
       .controls a { background: transparent; color: #16181d; }
+      .size-buttons { margin-left: auto; display: flex; gap: 0.35rem; }
+      .size-buttons button {
+        min-width: 2.5rem;
+        background: transparent;
+        color: #16181d;
+        font-weight: 600;
+      }
+      .size-buttons button:disabled { opacity: 0.4; cursor: default; }
       header {
         border-bottom: 2px solid #16181d;
         padding-bottom: 0.7rem;
@@ -136,7 +144,7 @@ export function setlistPrintPage(setlist) {
       ol { list-style: none; margin: 0; padding: 0; }
       li {
         display: grid;
-        grid-template-columns: 1.75rem minmax(0, 2fr) minmax(0, 1.4fr) auto;
+        grid-template-columns: 1.75rem minmax(0, 1fr) 3.5rem 3rem;
         gap: 0.6rem;
         align-items: baseline;
         padding: 0.55rem 0;
@@ -145,18 +153,27 @@ export function setlistPrintPage(setlist) {
       li:last-child { border-bottom: 0; }
       .position { color: #5c626e; font-variant-numeric: tabular-nums; }
       .title { font-weight: 600; }
-      .artist { color: #2b2f38; }
-      .meta { color: #5c626e; font-size: 0.9rem; white-space: nowrap; text-align: right; }
+      .key { font-weight: 600; text-align: right; }
+      .tempo {
+        color: #5c626e;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
       .empty { color: #5c626e; }
       @media (max-width: 34rem) {
-        li { grid-template-columns: 1.5rem minmax(0, 1fr) auto; }
-        .artist { grid-column: 2 / 3; }
-        .meta { grid-column: 3 / 4; grid-row: 1; }
+        li { grid-template-columns: 1.5rem minmax(0, 1fr) 3rem 2.5rem; font-size: 0.95rem; }
       }
+      @page { margin: 12mm 13mm; }
       @media print {
-        body { padding: 0; background: #fff; font-size: 12pt; }
+        body {
+          padding: 0;
+          background: #fff;
+          font-size: calc(var(--reading-size) * 1.1);
+        }
         .controls { display: none; }
-        li { break-inside: avoid; }
+        li { padding: 0.5rem 0; break-inside: avoid; }
+        header { margin-bottom: 0.5rem; }
       }
     </style>
   </head>
@@ -165,6 +182,10 @@ export function setlistPrintPage(setlist) {
       <div class="controls">
         <button type="button" onclick="window.print()">Print</button>
         <a href="/">Back to the song list</a>
+        <span class="size-buttons">
+          <button type="button" data-step="down" aria-label="Smaller text">A−</button>
+          <button type="button" data-step="up" aria-label="Bigger text">A+</button>
+        </span>
       </div>
       <header>
         <h1>${escapeHtml(setlist.name)}</h1>
@@ -172,6 +193,28 @@ export function setlistPrintPage(setlist) {
       </header>
       ${body}
     </main>
+    <script>
+      (function () {
+        var sizes = [14, 15, 16, 17, 19, 21, 24, 27];
+        var current = 3;
+        var root = document.documentElement;
+        function apply() {
+          root.style.setProperty('--reading-size', sizes[current] + 'px');
+          document.querySelectorAll('[data-step]').forEach(function (button) {
+            button.disabled =
+              button.dataset.step === 'down' ? current === 0 : current === sizes.length - 1;
+          });
+        }
+        document.addEventListener('click', function (event) {
+          var button = event.target.closest('[data-step]');
+          if (!button) return;
+          current += button.dataset.step === 'up' ? 1 : -1;
+          current = Math.max(0, Math.min(sizes.length - 1, current));
+          apply();
+        });
+        apply();
+      })();
+    </script>
   </body>
 </html>
 `;
