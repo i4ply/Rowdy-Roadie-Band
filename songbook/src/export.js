@@ -196,10 +196,25 @@ export function setlistPrintPage(setlist) {
     <script>
       (function () {
         var sizes = [14, 15, 16, 17, 19, 21, 24, 27];
+        var key = 'songbook.printSize';
         var current = 3;
         var root = document.documentElement;
+        function remember(size) {
+          try {
+            window.localStorage.setItem(key, String(size));
+          } catch (error) {
+            // Storage can be refused; the choice then lasts for this page only.
+          }
+        }
+        try {
+          var saved = sizes.indexOf(Number(window.localStorage.getItem(key)));
+          if (saved !== -1) current = saved;
+        } catch (error) {
+          current = 3;
+        }
         function apply() {
           root.style.setProperty('--reading-size', sizes[current] + 'px');
+          remember(sizes[current]);
           document.querySelectorAll('[data-step]').forEach(function (button) {
             button.disabled =
               button.dataset.step === 'down' ? current === 0 : current === sizes.length - 1;

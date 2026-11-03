@@ -66,7 +66,8 @@ artist, key, BPM) — the easiest thing to paste into a message. **Download .csv
 opens in a spreadsheet. **Print or save as PDF** opens a clean printed layout for a
 music stand — number, title, key and tempo, without the artist — in a new tab with
 a Print button, plus **A−** / **A+** buttons that resize the type (the size you pick
-is the size that prints); choose “Save as PDF” in the print dialog to keep a copy.
+is the size that prints, and is remembered for next time); choose “Save as PDF” in
+the print dialog to keep a copy.
 The page prints with narrow margins to give the list more room. The file name comes
 from the setlist name.
 
