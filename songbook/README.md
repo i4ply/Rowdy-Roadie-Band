@@ -81,6 +81,21 @@ save straight to the database. Useful when the lookup missed the recording (it c
 only leave `—` for a key it does not have) or picked the wrong version. BPM must be
 a whole number between 1 and 400; an empty key or BPM is stored as unknown.
 
+### Searching
+
+The search box filters the list as you type, case-insensitive, across title, artist,
+key and BPM. Two kinds of short query mean something more specific than text:
+
+- **A key.** A single letter is read as a key, compared on the note alone, so `G`
+  returns the songs in G and G minor but not G# — and not every title containing a
+  g. `G minor` narrows it to that mode. To search text that happens to be one
+  letter, type more of the word.
+- **A tempo.** A bare number is matched exactly, so `90` finds 90 BPM but not 190
+  (or, say, a title with 1990 in it).
+
+`key:c#` and `bpm:90` force a single column for anything the rules above miss.
+Escape clears the box.
+
 ### YouTube links
 
 Every song can carry a YouTube link. When a song is added the app searches YouTube

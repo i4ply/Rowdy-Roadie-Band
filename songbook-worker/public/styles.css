@@ -224,10 +224,18 @@ button:focus-visible {
   display: none;
 }
 
-.table-actions {
+.table-tools {
   display: flex;
-  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
   margin: 0 0 0.6rem;
+}
+
+.table-tools .search {
+  flex: 1 1 16rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.92rem;
 }
 
 .table-wrap {

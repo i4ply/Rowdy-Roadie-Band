@@ -52,7 +52,16 @@
 
       <p id="summary" class="summary"></p>
 
-      <div class="table-actions">
+      <div class="table-tools">
+        <label class="sr-only" for="search">Search songs by title, artist, key or BPM</label>
+        <input
+          id="search"
+          class="search"
+          type="search"
+          placeholder="Search title, artist, key or BPM"
+          autocomplete="off"
+          maxlength="100"
+        />
         <button id="find-youtube" class="secondary" type="button">Find missing YouTube links</button>
       </div>
 

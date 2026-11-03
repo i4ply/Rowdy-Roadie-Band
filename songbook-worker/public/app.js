@@ -23,11 +23,13 @@ const exportTxt = document.getElementById('export-txt');
 const exportCsv = document.getElementById('export-csv');
 const exportPrint = document.getElementById('export-print');
 const findYouTubeButton = document.getElementById('find-youtube');
+const searchInput = document.getElementById('search');
 
 const MAX_BATCH = 200;
 
 let songs = [];
 let activeSetlist = null;
+let searchText = '';
 
 // Sorting is presentational: the rows are re-rendered from the same objects, so
 // nothing is written back, re-fetched or dropped.
@@ -265,14 +267,71 @@ function syncSortIndicators() {
   }
 }
 
+const keyNote = key => String(key ?? '').match(/^[A-G][#b]?/)?.[0] ?? null;
+
+// Compare the note exactly, so "G" finds G and G minor but not G#.
+const matchesKey = (song, query) => {
+  const note = keyNote(song.key);
+  if (!note) return false;
+
+  const cleaned = query.replace(/\s+/g, '').toLowerCase();
+  const wantedNote = cleaned.match(/^[a-g][#b]?/)?.[0];
+  if (!wantedNote) return false;
+
+  const wantedMode = /minor|min$/.test(cleaned) ? 'minor' : /major|maj/.test(cleaned) ? 'major' : null;
+  const songMode = /minor/i.test(song.key) ? 'minor' : 'major';
+
+  if (note.toUpperCase() !== wantedNote.toUpperCase()) return false;
+  return !wantedMode || wantedMode === songMode;
+};
+
+// A single letter, or a letter with a mode, is read as a key — otherwise "g"
+// would return every title with a g in it.
+const KEY_SHAPE = /^[a-g][#b]?$/i;
+const KEY_WITH_MODE = /^[a-g][#b]?\s*(major|minor|maj|min)$/i;
+
+// One box covers everything: title, artist, key and tempo. "key:" and "bpm:"
+// narrow it to a single column when a plain term would be ambiguous.
+const matchesFilter = song => {
+  const raw = searchText.trim().toLowerCase();
+  if (!raw) return true;
+
+  const keyOnly = raw.match(/^key:\s*(.+)$/);
+  if (keyOnly) return matchesKey(song, keyOnly[1]);
+
+  const bpmOnly = raw.match(/^bpm:\s*(\d+)$/);
+  if (bpmOnly) return song.bpm === Number(bpmOnly[1]);
+
+  if (KEY_SHAPE.test(raw) || KEY_WITH_MODE.test(raw)) return matchesKey(song, raw);
+
+  if (song.title.toLowerCase().includes(raw)) return true;
+  if (song.artist.toLowerCase().includes(raw)) return true;
+  if (song.key && song.key.toLowerCase().includes(raw)) return true;
+
+  // A bare number is a tempo, matched exactly so "90" does not also return 190.
+  const tempo = raw.replace(/\s*bpm$/, '').trim();
+  return /^\d+$/.test(tempo) && song.bpm === Number(tempo);
+};
+
 function renderSongs() {
   rows.replaceChildren();
-  empty.hidden = songs.length > 0;
-  summary.textContent = songs.length
-    ? `${songs.length} ${songs.length === 1 ? 'song' : 'songs'} in the list`
-    : '';
+  const visible = sortedSongs().filter(matchesFilter);
+  const needle = searchText.trim();
 
-  for (const song of sortedSongs()) rows.append(songRow(song));
+  empty.hidden = visible.length > 0;
+  if (!visible.length) {
+    empty.textContent = songs.length
+      ? `No songs match “${needle}”.`
+      : 'No songs yet. Add the first one above.';
+  }
+
+  summary.textContent = !songs.length
+    ? ''
+    : needle
+      ? `${visible.length} of ${songs.length} songs match`
+      : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'} in the list`;
+
+  for (const song of visible) rows.append(songRow(song));
   syncSortIndicators();
 }
 
@@ -624,6 +683,25 @@ deleteSetlistButton.addEventListener('click', async () => {
   activeSetlist = null;
   setSetlistStatus(`Deleted “${name}”.`);
   await reloadSetlists({ selectFirst: true });
+});
+
+// Searching is local too: nothing is fetched or written while typing.
+searchInput.addEventListener('input', () => {
+  if (rows.querySelector('tr.editing')) {
+    searchInput.value = searchText;
+    setStatus('Save or cancel the row you are editing before searching.', 'error');
+    return;
+  }
+  searchText = searchInput.value;
+  renderSongs();
+});
+
+// Escape clears the box, for keyboards without a clear button.
+searchInput.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !searchInput.value) return;
+  searchInput.value = '';
+  searchText = '';
+  renderSongs();
 });
 
 // Click a heading to sort, again to reverse, a third time to go back to newest
