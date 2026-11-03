@@ -1,0 +1,13 @@
+{
+  "name": "songbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Song list database that fills in artist, key and BPM from the internet",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

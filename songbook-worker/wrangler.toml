@@ -1,0 +1,15 @@
+# Local development config. The deployed Worker is configured by deploy.json
+# and the Freebuff Sites platform (D1 binding and static assets are injected
+# there); this file only exists so `wrangler dev` can run the same code locally.
+name = "songbook"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "songbook"
+database_id = "00000000-0000-0000-0000-000000000000"

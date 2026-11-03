@@ -1,0 +1,178 @@
+// Setlist exports: plain text to paste and share, CSV for a spreadsheet, and a
+// printable page for a music stand.
+
+const describe = song =>
+  [song.key ? `key ${song.key}` : null, song.bpm ? `${song.bpm} BPM` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const countLabel = total => `${total} ${total === 1 ? 'song' : 'songs'}`;
+
+export function setlistText(setlist) {
+  const songs = setlist.songs ?? [];
+  const width = String(songs.length).length;
+  const lines = [setlist.name, `${countLabel(songs.length)} · exported ${today()}`, ''];
+
+  if (songs.length === 0) {
+    lines.push('This setlist is empty.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  songs.forEach((entry, index) => {
+    const { song } = entry;
+    lines.push(`${String(index + 1).padStart(width)}. ${song.title}`);
+    lines.push(`   ${[song.artist, describe(song)].filter(Boolean).join(' · ')}`);
+  });
+
+  return `${lines.join('\n')}\n`;
+}
+
+const csvField = value => {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+};
+
+export function setlistCsv(setlist) {
+  const rows = [['Position', 'Title', 'Artist', 'Key', 'BPM']];
+  (setlist.songs ?? []).forEach((entry, index) => {
+    rows.push([
+      index + 1,
+      entry.song.title,
+      entry.song.artist,
+      entry.song.key ?? '',
+      entry.song.bpm ?? '',
+    ]);
+  });
+  // A BOM so Excel reads the file as UTF-8, and CRLF because that is what it
+  // expects from a .csv.
+  return `\uFEFF${rows.map(row => row.map(csvField).join(',')).join('\r\n')}\r\n`;
+}
+
+// A safe download name: "Friday Night — 2nd set" becomes "friday-night-2nd-set.txt".
+export function exportFilename(name, extension) {
+  const base = String(name ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${base || 'setlist'}.${extension}`;
+}
+
+const escapeHtml = value =>
+  String(value ?? '').replace(
+    /[&<>"']/g,
+    character =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character],
+  );
+
+export function setlistPrintPage(setlist) {
+  const songs = setlist.songs ?? [];
+  const rows = songs
+    .map(
+      (entry, index) => `
+      <li>
+        <span class="position">${index + 1}</span>
+        <span class="title">${escapeHtml(entry.song.title)}</span>
+        <span class="artist">${escapeHtml(entry.song.artist)}</span>
+        <span class="meta">${escapeHtml(describe(entry.song))}</span>
+      </li>`,
+    )
+    .join('');
+
+  const body =
+    songs.length === 0
+      ? '<p class="empty">This setlist is empty.</p>'
+      : `<ol>${rows}\n    </ol>`;
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(setlist.name)}</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 2.5rem 1.5rem 4rem;
+        background: #f7f6f3;
+        color: #16181d;
+        font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 42rem; margin: 0 auto; }
+      .controls { display: flex; gap: 0.6rem; margin-bottom: 1.75rem; }
+      .controls button,
+      .controls a {
+        padding: 0.5rem 0.9rem;
+        border: 1px solid #16181d;
+        border-radius: 0.45rem;
+        background: #16181d;
+        color: #f7f6f3;
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .controls a { background: transparent; color: #16181d; }
+      header {
+        border-bottom: 2px solid #16181d;
+        padding-bottom: 0.7rem;
+        margin-bottom: 0.6rem;
+      }
+      h1 { margin: 0 0 0.25rem; font-size: 1.6rem; letter-spacing: -0.01em; }
+      .count { margin: 0; color: #5c626e; font-size: 0.9rem; }
+      ol { list-style: none; margin: 0; padding: 0; }
+      li {
+        display: grid;
+        grid-template-columns: 1.75rem minmax(0, 2fr) minmax(0, 1.4fr) auto;
+        gap: 0.6rem;
+        align-items: baseline;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid #dcd9d2;
+      }
+      li:last-child { border-bottom: 0; }
+      .position { color: #5c626e; font-variant-numeric: tabular-nums; }
+      .title { font-weight: 600; }
+      .artist { color: #2b2f38; }
+      .meta { color: #5c626e; font-size: 0.9rem; white-space: nowrap; text-align: right; }
+      .empty { color: #5c626e; }
+      @media (max-width: 34rem) {
+        li { grid-template-columns: 1.5rem minmax(0, 1fr) auto; }
+        .artist { grid-column: 2 / 3; }
+        .meta { grid-column: 3 / 4; grid-row: 1; }
+      }
+      @media print {
+        body { padding: 0; background: #fff; font-size: 12pt; }
+        .controls { display: none; }
+        li { break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="controls">
+        <button type="button" onclick="window.print()">Print</button>
+        <a href="/">Back to the song list</a>
+      </div>
+      <header>
+        <h1>${escapeHtml(setlist.name)}</h1>
+        <p class="count">${countLabel(songs.length)} · exported ${today()}</p>
+      </header>
+      ${body}
+    </main>
+  </body>
+</html>
+`;
+}

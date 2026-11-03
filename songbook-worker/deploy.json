@@ -1,0 +1,11 @@
+{
+  "entrypoint": "worker.js",
+  "compatibilityDate": "2026-01-01",
+  "modules": [
+    { "name": "worker.js", "type": "esm", "path": "./worker.js" },
+    { "name": "src/store.js", "type": "esm", "path": "./src/store.js" },
+    { "name": "src/lookup.js", "type": "esm", "path": "./src/lookup.js" },
+    { "name": "src/export.js", "type": "esm", "path": "./src/export.js" }
+  ],
+  "assetsDirectory": "./public"
+}
