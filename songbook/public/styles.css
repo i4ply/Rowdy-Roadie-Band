@@ -819,3 +819,68 @@ button.move:disabled {
     animation: none !important;
   }
 }
+
+/* When a song was added, and when it was last corrected. */
+.song-title {
+  display: block;
+}
+
+.added {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The Added column: the date, plus a second line once the row was corrected. */
+.added-cell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.edited {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.66rem;
+  opacity: 0.45;
+}
+
+/* Clicking a tempo flashes it once per beat. */
+.bpm-beat {
+  padding: 0.05rem 0.3rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transform-origin: center;
+  display: inline-block;
+}
+
+.bpm-beat:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bpm-beat:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.bpm-beat.beating {
+  color: #ff4136;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bpm-beat.beating {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}

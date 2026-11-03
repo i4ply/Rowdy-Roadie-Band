@@ -81,6 +81,26 @@ save straight to the database. Useful when the lookup missed the recording (it c
 only leave `—` for a key it does not have) or picked the wrong version. BPM must be
 a whole number between 1 and 400; an empty key or BPM is stored as unknown.
 
+### When a song was added or edited
+
+The **Added** column shows when a song entered the list, and once the row has been
+corrected a second line reads `edited <date>`. Hovering the cell gives the exact
+date and time. Only a real edit (title, artist, key, BPM or YouTube link) moves the
+edited stamp, so `created_at` never changes underneath a row. The list is
+newest-first by default, and the column sorts like the rest: one click for
+oldest-first, a second for newest, a third back to the default order.
+
+### Feeling the tempo
+
+Click a BPM number and it flashes once per beat at that tempo — two bars of four,
+then it stops, so you can see the feel before counting the band in. The first beat
+of each bar hits harder than the other three, so the flash shows where the bar
+starts. While it runs the number is red, so a glance across the list finds the
+tempo you are counting. Click it again to stop early, or click another tempo to
+switch. With "reduce motion"
+turned on in the operating system it rings once in red instead of pulsing. Songs
+with no BPM stay plain text and are not clickable.
+
 ### Searching
 
 The search box filters the list as you type, case-insensitive, across title, artist,

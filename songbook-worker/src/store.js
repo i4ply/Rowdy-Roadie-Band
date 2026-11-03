@@ -12,7 +12,8 @@ const SCHEMA = [
     isrc TEXT,
     spotify_url TEXT,
     youtube_url TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT
   )`,
   'CREATE UNIQUE INDEX IF NOT EXISTS songs_isrc ON songs (isrc) WHERE isrc IS NOT NULL',
   `CREATE TABLE IF NOT EXISTS setlists (
@@ -44,6 +45,12 @@ export function ensureSchema(db) {
         } catch {
           // Already present.
         }
+        // Older databases predate the "last edited" stamp.
+        try {
+          await db.prepare('ALTER TABLE songs ADD COLUMN updated_at TEXT').run();
+        } catch {
+          // Already present.
+        }
       })
       .catch(error => {
         schemaReady = null;
@@ -64,6 +71,7 @@ const toSong = row => ({
   spotifyUrl: row.spotify_url,
   youtubeUrl: row.youtube_url,
   createdAt: row.created_at,
+  updatedAt: row.updated_at,
 });
 
 export async function listSongs(db) {
@@ -133,7 +141,13 @@ export async function updateSong(db, id, patch) {
   }
   if (assignments.length === 0) return getSong(db, id);
   values.push(id);
-  await db.prepare(`UPDATE songs SET ${assignments.join(', ')} WHERE id = ?`).bind(...values).run();
+  // The edit itself is the only thing that moves updated_at; created_at stays put.
+  await db
+    .prepare(
+      `UPDATE songs SET ${assignments.join(', ')}, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+    )
+    .bind(...values)
+    .run();
   return getSong(db, id);
 }
 

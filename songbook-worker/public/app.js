@@ -130,6 +130,9 @@ function startEdit(song, row) {
     editRow.append(cell);
   }
 
+  // Keep the columns lined up while editing; the date is not editable.
+  editRow.append(addedCell(song));
+
   const actions = document.createElement('td');
   actions.className = 'actions';
   const save = makeButton('Save', 'save');
@@ -178,12 +181,137 @@ function startEdit(song, row) {
   fields.title.select();
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+
+// Timestamps are stored in UTC and read back in the reader's own timezone.
+function formatMoment(date) {
+  const now = new Date();
+  if (sameDay(date, now)) {
+    return `today ${date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(date, yesterday)) return 'yesterday';
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return `${date.getDate()} ${MONTHS[date.getMonth()]}${sameYear ? '' : ` ${date.getFullYear()}`}`;
+}
+
+const parseStamp = value => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+// The Added column: when the song entered the list, and — on a second line —
+// when it was last corrected.
+function addedCell(song) {
+  const cell = document.createElement('td');
+  cell.className = 'added-cell';
+
+  const created = parseStamp(song.createdAt);
+  const updated = parseStamp(song.updatedAt);
+
+  const when = document.createElement('span');
+  when.className = 'added';
+  when.textContent = created ? formatMoment(created) : 'no date';
+  cell.append(when);
+
+  if (updated) {
+    const edited = document.createElement('span');
+    edited.className = 'edited';
+    edited.textContent = `edited ${formatMoment(updated)}`;
+    cell.append(edited);
+  }
+
+  cell.title = created
+    ? `Added ${created.toLocaleString()}${updated ? ` · last edited ${updated.toLocaleString()}` : ''}`
+    : 'This song has no date recorded';
+
+  return cell;
+}
+
+// Clicking a tempo flashes the number once per beat, so the pulse carries the
+// feel of the song rather than just printing the number. One at a time, and
+// clicking the same tempo again stops it.
+// One bar of four beats. The downbeat flashes larger and fades further than the
+// other three, so the pulse says where the bar starts rather than just how fast
+// it is. Two bars in total, then it stops.
+const BEAT_KEYFRAMES = [
+  { offset: 0, transform: 'scale(1.45)', opacity: 0.2 },
+  { offset: 0.1, transform: 'scale(1)', opacity: 1 },
+  { offset: 0.25, transform: 'scale(1.16)', opacity: 0.45 },
+  { offset: 0.35, transform: 'scale(1)', opacity: 1 },
+  { offset: 0.5, transform: 'scale(1.16)', opacity: 0.45 },
+  { offset: 0.6, transform: 'scale(1)', opacity: 1 },
+  { offset: 0.75, transform: 'scale(1.16)', opacity: 0.45 },
+  { offset: 0.85, transform: 'scale(1)', opacity: 1 },
+  { offset: 1, transform: 'scale(1)', opacity: 1 },
+];
+
+let beatAnimation = null;
+let beatButton = null;
+
+function stopBeat() {
+  if (beatAnimation) beatAnimation.cancel();
+  beatAnimation = null;
+  if (!beatButton) return;
+  beatButton.classList.remove('beating');
+  beatButton.setAttribute('aria-pressed', 'false');
+  beatButton = null;
+}
+
+function toggleBeat(button, bpm) {
+  if (beatButton === button) {
+    stopBeat();
+    return;
+  }
+  stopBeat();
+  if (!bpm) return;
+
+  beatButton = button;
+  button.classList.add('beating');
+  button.setAttribute('aria-pressed', 'true');
+
+  // A moving pulse is not for everyone; a still ring says the same thing.
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    window.setTimeout(stopBeat, 1200);
+    return;
+  }
+
+  const beat = 60000 / bpm;
+  const bar = beat * 4;
+
+  beatAnimation = button.animate(BEAT_KEYFRAMES, {
+    duration: bar,
+    iterations: 2,
+    easing: 'ease-out',
+  });
+  beatAnimation.onfinish = stopBeat;
+}
+
+function bpmButton(song) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'bpm-beat';
+  button.textContent = String(song.bpm);
+  button.title = `Flash at ${song.bpm} BPM`;
+  button.setAttribute('aria-label', `Flash at ${song.bpm} BPM`);
+  button.setAttribute('aria-pressed', 'false');
+  button.addEventListener('click', () => toggleBeat(button, song.bpm));
+  return button;
+}
+
 function songRow(song) {
   const row = document.createElement('tr');
 
   const title = document.createElement('td');
   title.className = 'title';
-  title.textContent = song.title;
+  const titleText = document.createElement('span');
+  titleText.className = 'song-title';
+  titleText.textContent = song.title;
+  title.append(titleText);
 
   const artist = document.createElement('td');
   artist.textContent = song.artist;
@@ -194,7 +322,11 @@ function songRow(song) {
 
   const bpm = document.createElement('td');
   bpm.className = 'num bpm';
-  bpm.textContent = song.bpm ?? '—';
+  if (song.bpm) {
+    bpm.append(bpmButton(song));
+  } else {
+    bpm.textContent = '—';
+  }
 
   const youtube = document.createElement('td');
   youtube.className = 'yt';
@@ -204,6 +336,8 @@ function songRow(song) {
     youtube.classList.add('none');
     youtube.textContent = '—';
   }
+
+  const added = addedCell(song);
 
   const actions = document.createElement('td');
   actions.className = 'actions';
@@ -226,7 +360,7 @@ function songRow(song) {
 
   actions.append(add, edit, remove);
 
-  row.append(title, artist, key, bpm, youtube, actions);
+  row.append(title, artist, key, bpm, youtube, added, actions);
   return row;
 }
 
@@ -238,11 +372,14 @@ const SORT = {
   artist: (a, b) => compareText(a.artist, b.artist),
   key: (a, b) => compareText(a.key, b.key),
   bpm: (a, b) => Number(a.bpm) - Number(b.bpm),
+  added: (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
 };
 
 // Songs with no key or BPM stay at the bottom whichever way the column sorts.
 const isMissingValue = (song, column) =>
-  (column === 'key' && !song.key) || (column === 'bpm' && !song.bpm);
+  (column === 'key' && !song.key) ||
+  (column === 'bpm' && !song.bpm) ||
+  (column === 'added' && !song.createdAt);
 
 function sortedSongs() {
   const { column, direction } = sortState;
@@ -314,6 +451,8 @@ const matchesFilter = song => {
 };
 
 function renderSongs() {
+  // A re-render replaces the elements the pulse was running on.
+  stopBeat();
   rows.replaceChildren();
   const visible = sortedSongs().filter(matchesFilter);
   const needle = searchText.trim();
