@@ -52,7 +52,9 @@ body {
 }
 
 main {
-  max-width: 64rem;
+  /* Wide enough for the title column to sit on one line on a desktop, so the
+     song table does not need sideways scrolling on a PC. */
+  max-width: 84rem;
   margin: 0 auto;
 }
 
@@ -253,7 +255,7 @@ table {
 
 th,
 td {
-  padding: 0.78rem 1rem;
+  padding: 0.78rem 0.72rem;
   text-align: left;
   border-bottom: 1px solid var(--line-soft);
 }
