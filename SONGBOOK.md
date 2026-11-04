@@ -9,7 +9,7 @@ Two copies live here:
 - `songbook-worker/` — the hosted version the band uses: a Cloudflare Worker with
   the data in D1.
 
-Live site: <https://site-53c88bd5582041d58d82b21c1ce4b981.freebuff.page>
+Live site: <https://site-0e184ac6e03a461f957fe7dc51a1ea6e.freebuff.page>
 
 The two databases are separate. Each folder's README covers its own setup; the
 worker one has the deployment manifest and the local `wrangler dev` workflow.

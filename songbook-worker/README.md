@@ -4,7 +4,10 @@ The same song list as `../songbook`, but running as a Cloudflare Worker with the
 data in D1 instead of a local SQLite file, so it has a URL the band can open on
 their phones.
 
-Live preview: <https://site-53c88bd5582041d58d82b21c1ce4b981.freebuff.page>
+Live site: <https://site-0e184ac6e03a461f957fe7dc51a1ea6e.freebuff.page>
+
+The preview environment keeps its own URL and its own D1 database, so a test
+there never touches the band's list.
 
 ## What differs from the local version
 

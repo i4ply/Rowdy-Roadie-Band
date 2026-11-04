@@ -8,7 +8,10 @@ when you add a song title.
 ## The live site
 
 The band uses the hosted copy:
-<https://site-53c88bd5582041d58d82b21c1ce4b981.freebuff.page>
+<https://site-0e184ac6e03a461f957fe7dc51a1ea6e.freebuff.page>
+
+Older preview deployments keep their own URL and their own D1 database, so
+nothing tried there touches the band's list. Share only the link above.
 
 That deployment lives in `../songbook-worker/` (Cloudflare Worker + D1) and is
 built from `../songbook-worker/public/`. The two copies are independent
