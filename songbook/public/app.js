@@ -455,9 +455,15 @@ function bpmButton(song) {
   return button;
 }
 
-function songRow(song) {
+function songRow(song, used = new Set()) {
   const row = document.createElement('tr');
   row.dataset.id = song.id;
+  // Tint a row whose song is already in the setlist being built, so a song the
+  // band has used is obvious in the big list without checking the setlist.
+  if (used.has(song.id)) {
+    row.classList.add('used');
+    if (activeSetlist) row.title = `Already in “${activeSetlist.name}”`;
+  }
 
   const title = document.createElement('td');
   title.className = 'title';
@@ -631,7 +637,8 @@ function renderSongs() {
       ? `${visible.length} of ${songs.length} songs match`
       : `${songs.length} ${songs.length === 1 ? 'song' : 'songs'} in the list`;
 
-  for (const song of visible) rows.append(songRow(song));
+  const usedIds = new Set((activeSetlist?.songs ?? []).map(entry => entry.song.id));
+  for (const song of visible) rows.append(songRow(song, usedIds));
   syncSortIndicators();
 }
 

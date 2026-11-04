@@ -325,6 +325,19 @@ tbody tr:hover {
   background: rgba(139, 157, 255, 0.045);
 }
 
+/* A song already in the setlist being built, so it reads as used at a glance. */
+tbody tr.used {
+  background: rgba(139, 157, 255, 0.075);
+}
+
+tbody tr.used td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+tbody tr.used:hover {
+  background: rgba(139, 157, 255, 0.115);
+}
+
 td.title {
   font-weight: 600;
   letter-spacing: -0.005em;
