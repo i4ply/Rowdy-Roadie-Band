@@ -18,11 +18,21 @@ import {
   reorderSetlist,
   countSongs,
   importSongs,
+  importSetlists,
 } from './src/store.js';
 import { lookupSong, findYouTubeUrl, LookupError } from './src/lookup.js';
-import { setlistText, setlistCsv, setlistPrintPage, exportFilename } from './src/export.js';
+import {
+  setlistText,
+  setlistCsv,
+  setlistPrintPage,
+  exportFilename,
+  libraryJson,
+  libraryFilename,
+} from './src/export.js';
 
-const MAX_BODY = 16 * 1024;
+// A song import may carry up to 500 rows, which is far more than any edit or
+// lookup sends, so the cap has to leave room for a whole library.
+const MAX_BODY = 256 * 1024;
 
 const json = (payload, status = 200) =>
   new Response(JSON.stringify(payload), {
@@ -167,7 +177,10 @@ async function handleImport(db, request) {
   if (rows.length === 0) return json({ error: 'Send { "songs": [...] }.' }, 400);
   if (rows.length > 500) return json({ error: 'At most 500 songs at a time.' }, 400);
 
-  return json({ imported: await importSongs(db, rows) }, 201);
+  const imported = await importSongs(db, rows);
+  // A backup carries the setlists too; files written before that simply have none.
+  const setlists = Array.isArray(body.setlists) ? body.setlists.slice(0, 200) : [];
+  return json({ imported, setlists: await importSetlists(db, setlists) }, 201);
 }
 
 async function handleSetlistRoutes(db, url, request) {
@@ -286,6 +299,21 @@ export default {
       if (pathname === '/api/songs' && method === 'GET') return json({ songs: await listSongs(db) });
       if (pathname === '/api/songs' && method === 'POST') return await handleAddSong(db, request);
       if (pathname === '/api/import' && method === 'POST') return await handleImport(db, request);
+
+      // The whole song library and its setlists as one JSON file.
+      if (pathname === '/api/library/export' && method === 'GET') {
+        const songs = await listSongs(db);
+        const setlists = [];
+        for (const entry of await listSetlists(db)) {
+          const full = await getSetlist(db, entry.id);
+          if (full) setlists.push(full);
+        }
+        return document({
+          contentType: 'application/json; charset=utf-8',
+          filename: libraryFilename(),
+          body: libraryJson(songs, setlists),
+        });
+      }
 
       const songMatch = pathname.match(/^\/api\/songs\/(\d+)$/);
       if (songMatch && method === 'PATCH') return await handleUpdateSong(db, Number(songMatch[1]), request);

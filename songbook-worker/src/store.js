@@ -181,8 +181,8 @@ export async function importSongs(db, rows) {
     statements.push(
       db
         .prepare(`
-          INSERT OR IGNORE INTO songs (title, artist, album, musical_key, bpm, isrc, spotify_url, youtube_url, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))
+          INSERT OR IGNORE INTO songs (title, artist, album, musical_key, bpm, isrc, spotify_url, youtube_url, created_at, time_signature)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), ?)
         `)
         .bind(
           title,
@@ -194,12 +194,35 @@ export async function importSongs(db, rows) {
           row.spotify_url ?? row.spotifyUrl ?? null,
           row.youtube_url ?? row.youtubeUrl ?? null,
           row.created_at ?? row.createdAt ?? null,
+          row.time_signature ?? row.timeSignature ?? null,
         ),
     );
   }
   if (statements.length === 0) return 0;
   const results = await db.batch(statements);
   return results.reduce((total, result) => total + (result.meta.changes > 0 ? 1 : 0), 0);
+}
+
+// Restoring setlists from a backup file: songs are matched to the rows that were
+// just imported, by ISRC where the backup has one, otherwise by title and artist.
+export async function importSetlists(db, setlists) {
+  let restored = 0;
+  for (const entry of setlists) {
+    const name = String(entry?.name ?? '').trim().slice(0, 100);
+    if (!name) continue;
+    const setlist = await createSetlist(db, name);
+    for (const reference of Array.isArray(entry.songs) ? entry.songs : []) {
+      const title = String(reference?.title ?? '').trim();
+      const artist = String(reference?.artist ?? '').trim();
+      const match = reference?.isrc
+        ? (await findByIsrc(db, reference.isrc)) ?? (await findByTitleArtist(db, title, artist))
+        : await findByTitleArtist(db, title, artist);
+      if (!match) continue;
+      await addSongToSetlist(db, setlist.id, match.id);
+    }
+    restored += 1;
+  }
+  return restored;
 }
 
 // --- Setlists -------------------------------------------------------------

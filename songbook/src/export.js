@@ -10,6 +10,52 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const countLabel = total => `${total} ${total === 1 ? 'song' : 'songs'}`;
 
+// A whole-library backup: every stored field plus the setlists, in the shape
+// POST /api/import accepts, so a deleted row, a bad edit or a wiped setlist can
+// all come back from one file.
+export function libraryJson(songs, setlists = [], exportedAt = new Date().toISOString()) {
+  return `${JSON.stringify(
+    {
+      format: 'rowdy-roadie-songbook-library',
+      version: 2,
+      exportedAt,
+      count: songs.length,
+      setlistCount: setlists.length,
+      songs: songs.map(song => ({
+        title: song.title,
+        artist: song.artist,
+        album: song.album ?? null,
+        key: song.key ?? null,
+        bpm: song.bpm ?? null,
+        timeSignature: song.timeSignature ?? null,
+        isrc: song.isrc ?? null,
+        spotifyUrl: song.spotifyUrl ?? null,
+        youtubeUrl: song.youtubeUrl ?? null,
+        createdAt: song.createdAt ?? null,
+      })),
+      // Setlist songs are named rather than numbered: ids change on a restore,
+      // so an ISRC (or the title and artist) is what puts them back in place.
+      setlists: setlists.map(setlist => ({
+        name: setlist.name,
+        songs: (setlist.songs ?? []).map(entry => {
+          const song = entry.song ?? entry;
+          return {
+            title: song.title,
+            artist: song.artist,
+            isrc: song.isrc ?? null,
+          };
+        }),
+      })),
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+export function libraryFilename() {
+  return `songbook-library-${today()}.json`;
+}
+
 export function setlistText(setlist) {
   const songs = setlist.songs ?? [];
   const width = String(songs.length).length;
