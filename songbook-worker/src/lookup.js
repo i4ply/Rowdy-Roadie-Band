@@ -25,7 +25,16 @@ const MAX_PAGES = 3;
 const YOUTUBE_SEARCH = 'https://www.youtube.com/results?search_query=';
 const YOUTUBE_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-const NOISY_VIDEO = /karaoke|instrumental|backing track|tribute|cover band|\(cover\)|lyrics? video/i;
+// Uploads that are not the recording: a karaoke track or an instrumental would
+// mislead someone learning the song, so they are never used at all.
+const REJECT_VIDEO = /karaoke|instrumental|backing track|tribute|cover band|\(cover\)/i;
+// A lyric video is the artist's own audio with the words on screen. It is a
+// fine stand-in when that is all the artist has published, but only ever as
+// the last resort.
+const LYRIC_VIDEO = /lyrics? video|\blyrics?\b/i;
+// A different performance from the one the key and BPM describe, so it loses to
+// the studio recording whenever there is a choice.
+const LIVE_VIDEO = /\blive\b|concert|bootleg|in concert/i;
 
 // Weights for picking the recording the user meant. Artist identity dominates:
 // popularity only breaks ties between versions of the same song.
@@ -299,30 +308,81 @@ export async function lookupSong(input) {
   };
 }
 
-// Best effort: take the first YouTube result for "title artist". A karaoke or
-// cover upload is rejected, because a wrong link is worse than no link.
+// The results page is around a megabyte and YouTube is not always quick about
+// it, so a slow reply gets one more try instead of a blank link.
+async function fetchYouTubeResults(query) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`${YOUTUBE_SEARCH}${encodeURIComponent(query)}`, {
+        headers: { 'user-agent': YOUTUBE_USER_AGENT, 'accept-language': 'en-US,en;q=0.9' },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!response.ok) return null;
+      return await response.text();
+    } catch {
+      // try once more, then give up
+    }
+  }
+  return null;
+}
+
+// Every video on a results page, in the order YouTube ranked them.
+function parseYouTubeResults(html) {
+  const pattern =
+    /"videoId":"([A-Za-z0-9_-]{11})"[\s\S]{0,3000}?"title":\{"runs":\[\{"text":"([^"]{3,120})"/g;
+  const videos = [];
+  for (const [, videoId, title] of html.matchAll(pattern)) {
+    if (!videos.some(video => video.videoId === videoId)) videos.push({ videoId, title });
+  }
+  return videos;
+}
+
+// "X Ambassadors" -> the words worth finding in a video title, so a title that
+// names the band beats a bare re-upload that only names the song.
+function significantWords(artistKey) {
+  return artistKey.split(' ').filter(word => word.length >= 3 && !/^(the|and)$/.test(word));
+}
+
+// Higher is better. YouTube's own ranking is the tie-break, so the score only
+// has to say "this one names the band, looks official, and is the studio
+// recording". An official upload outranks a fan re-upload, and the artist's own
+// audio behind a lyric video still beats somebody's phone recording of a gig.
+function scoreVideo(video, { titleKey, artistKey, index }) {
+  const text = normalize(video.title);
+  let score = 0;
+  if (artistKey && text.includes(artistKey)) score += 40;
+  else if (significantWords(artistKey).every(word => text.includes(word))) score += 25;
+  if (titleKey && text.includes(titleKey)) score += 20;
+  if (/\bofficial\b|\bvevo\b/.test(text)) score += 30;
+  if (LYRIC_VIDEO.test(video.title)) score -= 5;
+  // Enough to lose to the studio audio even when the live upload does name the
+  // band, which it usually does: "Artist - Song (Live 1995)" scores otherwise
+  // well on the two checks above.
+  if (LIVE_VIDEO.test(video.title)) score -= 45;
+  return score - index / 100;
+}
+
+// Best effort: the best real video or audio upload for "title artist". A
+// karaoke, instrumental or cover upload is refused, because a wrong link is
+// worse than no link. When the only thing on offer is a lyric video, that is
+// used rather than leaving the row blank — the words on screen still identify
+// the recording, and a blank link is no help at all.
 // Returns null on any failure so adding a song never depends on this.
 export async function findYouTubeUrl(title, artist) {
   const query = [title, artist].filter(Boolean).join(' ').trim();
   if (!query) return null;
 
-  try {
-    const response = await fetch(`${YOUTUBE_SEARCH}${encodeURIComponent(query)}`, {
-      headers: { 'user-agent': YOUTUBE_USER_AGENT, 'accept-language': 'en-US,en;q=0.9' },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) return null;
+  const html = await fetchYouTubeResults(query);
+  if (!html) return null;
 
-    const html = await response.text();
-    const match = html.match(
-      /"videoId":"([A-Za-z0-9_-]{11})"[\s\S]{0,3000}?"title":\{"runs":\[\{"text":"([^"]{3,120})"/,
-    );
-    if (!match) return null;
+  const videos = parseYouTubeResults(html).filter(video => !REJECT_VIDEO.test(video.title));
+  if (videos.length === 0) return null;
 
-    const [, videoId, videoTitle] = match;
-    if (NOISY_VIDEO.test(videoTitle)) return null;
-    return `https://www.youtube.com/watch?v=${videoId}`;
-  } catch {
-    return null;
-  }
+  const titleKey = normalize(title);
+  const artistKey = normalize(artist);
+  const chosen = videos
+    .map((video, index) => ({ video, score: scoreVideo(video, { titleKey, artistKey, index }) }))
+    .sort((a, b) => b.score - a.score)[0].video;
+
+  return chosen ? `https://www.youtube.com/watch?v=${chosen.videoId}` : null;
 }
