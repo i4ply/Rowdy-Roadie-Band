@@ -47,7 +47,9 @@ Two free, keyless services are combined, because neither is enough on its own:
 | 2 | [ReccoBeats API](https://reccobeats.com/docs/documentation/introduction) | Returns audio features for that recording: `key` + `mode` → musical key, `tempo` → BPM. |
 
 Spotify IDs are used to fetch the features; `key` is a pitch class 0–11 and
-`mode` is 1 for major and 0 for minor, so `key: 8, mode: 1` becomes `G#`.
+`mode` is 1 for major and 0 for minor, so `key: 8, mode: 1` becomes `Ab`. Sharp
+notes are stored as the equivalent flat — `A#` is saved as `Bb` — because that is
+the spelling a band reads off a chart.
 
 ReccoBeats' own search ranks covers and karaoke versions first and its popularity
 figures are stale for older catalogues, so it is only ever used *after* Apple has
@@ -127,8 +129,9 @@ The search box filters the list as you type, case-insensitive, across title, art
 key and BPM. Two kinds of short query mean something more specific than text:
 
 - **A key.** A single letter is read as a key, compared on the note alone, so `G`
-  returns the songs in G and G minor but not G# — and not every title containing a
-  g. `G minor` narrows it to that mode. To search text that happens to be one
+  returns the songs in G and G minor but not Gb — and not every title containing a
+  g. `G minor` narrows it to that mode. Keys are written in flats, so search for
+  `Gb`, not `F#`. To search text that happens to be one
   letter, type more of the word.
 - **A tempo.** A bare number is matched exactly, so `90` finds 90 BPM but not 190
   (or, say, a title with 1990 in it).
