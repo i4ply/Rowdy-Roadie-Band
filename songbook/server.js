@@ -21,12 +21,21 @@ import {
   reorderSetlist,
 } from './src/store.js';
 import { lookupSong, findYouTubeUrl, LookupError } from './src/lookup.js';
-import { setlistText, setlistCsv, setlistPrintPage, exportFilename } from './src/export.js';
+import {
+  setlistText,
+  setlistCsv,
+  setlistPrintPage,
+  exportFilename,
+  libraryJson,
+  libraryFilename,
+} from './src/export.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public/', import.meta.url));
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const MAX_BODY = 16 * 1024;
+// A song import may carry up to 500 rows, which is far more than any edit or
+// lookup sends, so the cap has to leave room for a whole library.
+const MAX_BODY = 256 * 1024;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -333,6 +342,17 @@ const server = createServer(async (request, response) => {
   const { pathname } = url;
 
   try {
+    // The whole song library and its setlists as one JSON file.
+    if (pathname === '/api/library/export' && request.method === 'GET') {
+      const setlists = listSetlists()
+        .map(entry => getSetlist(entry.id))
+        .filter(Boolean);
+      return sendDocument(response, {
+        contentType: 'application/json; charset=utf-8',
+        filename: libraryFilename(),
+        body: libraryJson(listSongs(), setlists),
+      });
+    }
     if (pathname === '/api/songs' && request.method === 'GET') {
       return sendJson(response, 200, { songs: listSongs() });
     }

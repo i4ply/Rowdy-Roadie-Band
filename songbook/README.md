@@ -168,6 +168,7 @@ the row and re-add it with the artist.
 | `PATCH` | `/api/songs/:id` | Correct a row: any of `title`, `artist`, `key`, `bpm`, `youtubeUrl` (send `""` or `null` to clear key/BPM/link). Returns the updated row. |
 | `POST` | `/api/songs/:id/youtube` | Look the song up on YouTube and save the link; `404` when no video is found. |
 | `DELETE` | `/api/songs/:id` | Remove a song, `204` on success. |
+| `GET` | `/api/library/export` | Download the whole song library and its setlists as JSON — every stored field, in the shape `/api/import` reads back. |
 | `GET` | `/api/setlists` | List setlists with song counts. |
 | `POST` | `/api/setlists` | `{"name": "Friday"}` — create a setlist. |
 | `GET` | `/api/setlists/:id` | One setlist with its songs in order. |
@@ -196,3 +197,9 @@ curl -X POST http://localhost:3000/api/songs \
 - Lookups take a second or two because they make several upstream requests.
 - Both services are public and rate limited; lookups use a short retry with
   backoff but a burst of additions may be throttled.
+- **Back up library** downloads every song and every setlist — names, order and
+  all — as one JSON file. Keep a copy before a big cleanup: the file posts
+  straight back to `/api/import` on an empty library, where each setlist is
+  rebuilt against the songs that were just imported (matched by ISRC, or by
+  title and artist). It is small enough to read by hand when one row goes
+  missing.
