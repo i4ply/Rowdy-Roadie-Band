@@ -27,9 +27,11 @@ everyone shares one library.
 ### YouTube links
 
 Stored per song in `youtube_url` and resolved the same way as the local version —
-the public YouTube results page, since there is no keyless API; karaoke and cover
-uploads are skipped. Deployments created before this feature get the column from a
-guarded `ALTER TABLE` inside `ensureSchema`, on the first request after deploy.
+the public YouTube results page, since there is no keyless API; karaoke,
+instrumental and cover uploads are skipped, and an official lyric video is used
+only as the last resort, when nothing better is on offer. Deployments created
+before this feature get the column from a guarded `ALTER TABLE` inside
+`ensureSchema`, on the first request after deploy.
 
 ## Layout
 
