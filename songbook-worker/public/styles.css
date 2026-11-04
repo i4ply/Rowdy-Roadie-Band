@@ -328,6 +328,10 @@ tbody tr:hover {
 td.title {
   font-weight: 600;
   letter-spacing: -0.005em;
+  /* Give the title column the width its text needs: the title stays on one
+     line at full size and the table scrolls inside .table-wrap, instead of
+     wrapping a long title over several lines. */
+  white-space: nowrap;
 }
 
 .num {
