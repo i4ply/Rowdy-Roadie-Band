@@ -14,6 +14,10 @@
 // unknown key/BPM instead of silently storing a cover's tempo.
 
 const ITUNES_URL = 'https://itunes.apple.com/search';
+// Apple answers for whichever country the request came from when no storefront
+// is named, and a 1993 country single can drop out of the results in some of
+// them — so the storefront is pinned.
+const ITUNES_COUNTRY = 'US';
 const RECCOBEATS_URL = 'https://api.reccobeats.com/v1';
 
 const USER_AGENT = 'SongBook/1.0 (song list database)';
@@ -81,6 +85,11 @@ function baseTitle(value) {
   );
 }
 
+// Country and blues titles love the clipped spelling — "Hard Workin' Man" —
+// while people type the full word. Dropping the g on -ing words lets the two
+// find each other instead of reporting a famous song as missing.
+const looseTitle = value => normalize(value).replace(/\b([a-z]{3,})ing\b/g, '$1in');
+
 // "The Weeknd & ROSALÍA" should still be recognised as The Weeknd.
 function artistMatches(a, b) {
   if (!a || !b) return false;
@@ -117,7 +126,7 @@ async function fetchJson(url, { attempts = 4, timeout = 15000 } = {}) {
 // Which recording did the user mean? Apple's relevance ranking is the best
 // keyless guide to the canonical version of a song, so its order is preserved.
 async function searchItunes(titleKey) {
-  const url = `${ITUNES_URL}?term=${encodeURIComponent(titleKey)}&entity=song&media=music&limit=15`;
+  const url = `${ITUNES_URL}?term=${encodeURIComponent(titleKey)}&entity=song&media=music&limit=15&country=${ITUNES_COUNTRY}`;
   const data = await fetchJson(url).catch(() => ({ results: [] }));
   return (data.results ?? [])
     .filter(track => track.trackName && track.artistName)
@@ -128,8 +137,16 @@ async function searchItunes(titleKey) {
     }))
     .filter(track => {
       const candidate = baseTitle(track.title);
-      if (candidate === titleKey) return true;
-      return titleKey.length > 2 && (candidate.includes(titleKey) || titleKey.includes(candidate));
+      const looseCandidate = looseTitle(candidate);
+      const looseKey = looseTitle(titleKey);
+      if (candidate === titleKey || looseCandidate === looseKey) return true;
+      if (titleKey.length <= 2) return false;
+      return (
+        candidate.includes(titleKey) ||
+        titleKey.includes(candidate) ||
+        looseCandidate.includes(looseKey) ||
+        looseKey.includes(looseCandidate)
+      );
     });
 }
 
@@ -178,13 +195,19 @@ function scoreCandidate(track, { titleKey, artistHint, knownArtists }) {
   const artists = (track.artists ?? []).map(artist => normalize(artist.name));
   const popularity = Number(track.popularity) || 0;
 
+  const looseKey = looseTitle(titleKey);
+  const looseTitles = [looseTitle(rawTitle), looseTitle(candidateTitle)];
+
   let score = popularity * WEIGHT.popularity;
   let titleMatch = false;
 
-  if (rawTitle === titleKey || candidateTitle === titleKey) {
+  if (rawTitle === titleKey || candidateTitle === titleKey || looseTitles.includes(looseKey)) {
     score += WEIGHT.titleExact;
     titleMatch = true;
-  } else if (titleKey.length > 2 && (rawTitle.includes(titleKey) || candidateTitle.includes(titleKey))) {
+  } else if (
+    titleKey.length > 2 &&
+    (rawTitle.includes(titleKey) || candidateTitle.includes(titleKey) || looseTitles.some(title => title.includes(looseKey)))
+  ) {
     score += WEIGHT.titlePartial;
     titleMatch = true;
   }
@@ -262,7 +285,11 @@ export async function lookupSong(input) {
     .sort((a, b) => b.score - a.score);
 
   // If the recording is not covered, still keep the artist the user meant.
-  const fallback = known.find(track => normalize(track.title) === rawTitle) ?? known[0] ?? null;
+  const looseRaw = looseTitle(rawTitle);
+  const fallback =
+    known.find(track => normalize(track.title) === rawTitle || looseTitle(track.title) === looseRaw) ??
+    known[0] ??
+    null;
 
   let chosen = null;
   if (artistHint) {

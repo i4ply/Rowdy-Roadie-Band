@@ -121,23 +121,25 @@ const escapeHtml = value =>
       })[character],
   );
 
-export function setlistPrintPage(setlist) {
-  const songs = setlist.songs ?? [];
+// The printed layout is shared: a setlist and the whole song list differ only in
+// what seeds the rows and the heading above them.
+function printPage({ heading, songs, emptyMessage, artist = false }) {
   const rows = songs
     .map(
-      (entry, index) => `
+      (song, index) => `
       <li>
         <span class="position">${index + 1}</span>
-        <span class="title">${escapeHtml(entry.song.title)}</span>
-        <span class="key">${escapeHtml(entry.song.key ?? '—')}</span>
-        <span class="tempo">${entry.song.bpm ?? ''}</span>
+        <span class="title">${escapeHtml(song.title)}</span>
+        ${artist ? `<span class="artist">${escapeHtml(song.artist ?? '')}</span>` : ''}
+        <span class="key">${escapeHtml(song.key ?? '—')}</span>
+        <span class="tempo">${song.bpm ?? ''}</span>
       </li>`,
     )
     .join('');
 
   const body =
     songs.length === 0
-      ? '<p class="empty">This setlist is empty.</p>'
+      ? `<p class="empty">${escapeHtml(emptyMessage)}</p>`
       : `<ol>${rows}\n    </ol>`;
 
   return `<!doctype html>
@@ -145,7 +147,7 @@ export function setlistPrintPage(setlist) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(setlist.name)}</title>
+    <title>${escapeHtml(heading)}</title>
     <style>
       :root { color-scheme: light; --reading-size: 17px; }
       * { box-sizing: border-box; }
@@ -180,6 +182,15 @@ export function setlistPrintPage(setlist) {
         font-weight: 600;
       }
       .size-buttons button:disabled { opacity: 0.4; cursor: default; }
+      .artist-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-left: auto;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+      .artist-toggle + .size-buttons { margin-left: 0; }
       header {
         border-bottom: 2px solid #16181d;
         padding-bottom: 0.7rem;
@@ -197,8 +208,13 @@ export function setlistPrintPage(setlist) {
         border-bottom: 1px solid #dcd9d2;
       }
       li:last-child { border-bottom: 0; }
+      /* The artist column is optional: unticked, the rows fall back to the same
+         number, title, key, tempo layout a setlist prints. */
+      [data-artist="on"] li { grid-template-columns: 1.75rem minmax(0, 1fr) minmax(0, 13rem) 3.5rem 3rem; }
+      [data-artist="off"] .artist { display: none; }
       .position { color: #5c626e; font-variant-numeric: tabular-nums; }
       .title { font-weight: 600; }
+      .artist { color: #5c626e; overflow-wrap: break-word; }
       .key { font-weight: 600; text-align: right; }
       .tempo {
         color: #5c626e;
@@ -209,6 +225,7 @@ export function setlistPrintPage(setlist) {
       .empty { color: #5c626e; }
       @media (max-width: 34rem) {
         li { grid-template-columns: 1.5rem minmax(0, 1fr) 3rem 2.5rem; font-size: 0.95rem; }
+        [data-artist="on"] li { grid-template-columns: 1.4rem minmax(0, 1fr) minmax(0, 7.5rem) 2.6rem 2.2rem; }
       }
       @page { margin: 12mm 13mm; }
       @media print {
@@ -228,13 +245,14 @@ export function setlistPrintPage(setlist) {
       <div class="controls">
         <button type="button" onclick="window.print()">Print</button>
         <a href="/">Back to the song list</a>
+        ${artist ? '<label class="artist-toggle"><input type="checkbox" id="artist-toggle" checked /> Artist</label>' : ''}
         <span class="size-buttons">
           <button type="button" data-step="down" aria-label="Smaller text">A−</button>
           <button type="button" data-step="up" aria-label="Bigger text">A+</button>
         </span>
       </div>
       <header>
-        <h1>${escapeHtml(setlist.name)}</h1>
+        <h1>${escapeHtml(heading)}</h1>
         <p class="count">${countLabel(songs.length)} · exported ${today()}</p>
       </header>
       ${body}
@@ -273,10 +291,59 @@ export function setlistPrintPage(setlist) {
           current = Math.max(0, Math.min(sizes.length - 1, current));
           apply();
         });
+
+        // The artist column is remembered like the type size, and shown by
+        // default: checking a chord chart is the usual reason to print.
+        var artistKey = 'songbook.printArtist';
+        var artistToggle = document.getElementById('artist-toggle');
+        function applyArtist(on) {
+          root.dataset.artist = on ? 'on' : 'off';
+          if (artistToggle) artistToggle.checked = on;
+          try {
+            window.localStorage.setItem(artistKey, on ? 'on' : 'off');
+          } catch (error) {
+            // Storage can be refused; the choice then lasts for this page only.
+          }
+        }
+        if (artistToggle) {
+          var savedArtist = null;
+          try {
+            savedArtist = window.localStorage.getItem(artistKey);
+          } catch (error) {
+            savedArtist = null;
+          }
+          applyArtist(savedArtist === null ? true : savedArtist === 'on');
+          artistToggle.addEventListener('change', function () {
+            applyArtist(artistToggle.checked);
+          });
+        }
+
         apply();
       })();
     </script>
   </body>
 </html>
 `;
+}
+
+export function setlistPrintPage(setlist) {
+  return printPage({
+    heading: setlist.name,
+    songs: (setlist.songs ?? []).map(entry => entry.song),
+    emptyMessage: 'This setlist is empty.',
+  });
+}
+
+// The whole library on one page, A to Z, so the band can print the list without
+// building a setlist and adding every song first.
+export function libraryPrintPage(songs, heading = 'The Rowdy Roadie Band Song List') {
+  const sorted = [...songs].sort((a, b) =>
+    String(a.title).localeCompare(String(b.title), undefined, { sensitivity: 'base', numeric: true }),
+  );
+  return printPage({
+    heading,
+    songs: sorted,
+    emptyMessage: 'No songs in the list yet.',
+    artist: true,
+  });
 }

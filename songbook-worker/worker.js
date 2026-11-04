@@ -26,6 +26,7 @@ import {
   setlistCsv,
   setlistPrintPage,
   exportFilename,
+  libraryPrintPage,
   libraryJson,
   libraryFilename,
 } from './src/export.js';
@@ -67,6 +68,9 @@ async function handleAddSong(db, request) {
   if (!title) return json({ error: 'Enter a song title.' }, 400);
   if (title.length > 200) return json({ error: 'That title is too long.' }, 400);
 
+  // Nothing could be found online, so the row is saved exactly as typed.
+  if (body.manual === true) return addSongByHand(db, title);
+
   let match;
   try {
     match = await lookupSong(title);
@@ -91,6 +95,33 @@ async function handleAddSong(db, request) {
 
   const song = await insertSong(db, match);
   return json({ song, match: { confidence: match.confidence, audioFeatures: match.audioFeatures } }, 201);
+}
+
+// A song the lookup could not identify is stored as typed rather than guessed:
+// "Title - Artist" still fills both columns, and the key, tempo and link are
+// left empty for the band to fill in with Edit.
+async function addSongByHand(db, typed) {
+  const split = typed.match(/^(.*\S)\s+[-\u2013\u2014]\s+(.+)$/);
+  const title = (split ? split[1] : typed).trim();
+  const artist = split ? split[2].trim() : '';
+
+  if (!title) return json({ error: 'Enter a song title.' }, 400);
+  if (artist.length > 200) return json({ error: 'That artist name is too long.' }, 400);
+
+  const existing = await findByTitleArtist(db, title, artist);
+  if (existing) return json({ error: `“${existing.title}” is already in your list.`, song: existing }, 409);
+
+  const song = await insertSong(db, {
+    title,
+    artist,
+    album: null,
+    musicalKey: null,
+    bpm: null,
+    isrc: null,
+    spotifyUrl: null,
+    youtubeUrl: null,
+  });
+  return json({ song, manual: true }, 201);
 }
 
 // null clears the link; undefined means it was not a YouTube URL at all.
@@ -281,6 +312,18 @@ async function handleSetlistRoutes(db, url, request) {
   return null;
 }
 
+// The page, script and stylesheet carry no version in their names, so a cached
+// copy would keep a fix off the band's phones until someone hard-reloads. Asking
+// the browser to check back every time costs one conditional request: an
+// unchanged file comes back as a cheap 304, and a new deploy is picked up on the
+// next page load without anyone being told to refresh.
+async function freshAsset(env, request) {
+  const response = await env.ASSETS.fetch(request);
+  const copy = new Response(response.body, response);
+  copy.headers.set('cache-control', 'no-cache, must-revalidate');
+  return copy;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -291,7 +334,7 @@ export default {
     try {
       if (!pathname.startsWith('/api/')) {
         if (method !== 'GET' && method !== 'HEAD') return json({ error: 'Method not allowed' }, 405);
-        return await env.ASSETS.fetch(request);
+        return await freshAsset(env, request);
       }
 
       await ensureSchema(db);
@@ -312,6 +355,14 @@ export default {
           contentType: 'application/json; charset=utf-8',
           filename: libraryFilename(),
           body: libraryJson(songs, setlists),
+        });
+      }
+
+      // The whole list on one printable page, without building a setlist first.
+      if (pathname === '/api/library/print' && method === 'GET') {
+        return document({
+          contentType: 'text/html; charset=utf-8',
+          body: libraryPrintPage(await listSongs(db)),
         });
       }
 

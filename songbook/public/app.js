@@ -289,17 +289,12 @@ function beatsPerBar(song) {
 }
 
 // Every beat flashes the same, like a click track: no accent, so what you see is
-// the pulse itself rather than where the bar starts.
-function beatKeyframes(beats) {
-  const step = 1 / beats;
-  const frames = [];
-  for (let index = 0; index < beats; index += 1) {
-    frames.push({ offset: index * step, transform: 'scale(1.3)', opacity: 0.25 });
-    frames.push({ offset: index * step + step * 0.45, transform: 'scale(1)', opacity: 1 });
-  }
-  frames.push({ offset: 1, transform: 'scale(1)', opacity: 1 });
-  return frames;
-}
+// the pulse itself rather than where the bar starts. The number is at its biggest
+// and brightest on the beat, then settles back, so the flash marks the tick.
+const PULSE_SHAPE = [
+  { transform: 'scale(1.35)', opacity: 1, offset: 0 },
+  { transform: 'scale(1)', opacity: 1, offset: 1 },
+];
 
 // How many bars one press plays — the flash and the click use the same count.
 const BARS = 4;
@@ -316,14 +311,17 @@ function clickContext() {
   return audio;
 }
 
-// Ticks are scheduled ahead of time, so they keep time with the flash instead of
-// drifting with the event loop.
+// Ticks are scheduled ahead of time, so they keep time instead of drifting with
+// the event loop. The lead is how far ahead the first tick is queued; the flash
+// starts from that same queued time, so the two never wait on each other.
+const CLICK_LEAD = 0.04;
+
 function scheduleClicks(bpm, count) {
   const context = clickContext();
-  if (!context) return;
+  if (!context) return null;
 
   const beat = 60 / bpm;
-  const start = context.currentTime + 0.04;
+  const start = context.currentTime + CLICK_LEAD;
 
   for (let index = 0; index < count; index += 1) {
     const at = start + index * beat;
@@ -342,6 +340,16 @@ function scheduleClicks(bpm, count) {
     osc.stop(at + 0.06);
     clickNodes.push(osc);
   }
+
+  return start;
+}
+
+// What the speakers have actually reached, on the audio clock. Comparing the
+// ticks against this rather than against the scheduler is what keeps the flash on
+// the sound instead of on the queue; browsers without it use the scheduled time.
+function heardTime(context) {
+  const stamp = context.getOutputTimestamp?.();
+  return stamp?.contextTime > 0 ? stamp.contextTime : context.currentTime;
 }
 
 function stopClicks() {
@@ -363,13 +371,16 @@ function setMuted(next) {
   stopClicks();
 }
 
-let beatAnimation = null;
+let beatFrame = null;
+let beatTimer = null;
 let beatButton = null;
 
 function stopBeat() {
   stopClicks();
-  if (beatAnimation) beatAnimation.cancel();
-  beatAnimation = null;
+  if (beatFrame) cancelAnimationFrame(beatFrame);
+  if (beatTimer) window.clearTimeout(beatTimer);
+  beatFrame = null;
+  beatTimer = null;
   if (!beatButton) return;
   beatButton.classList.remove('beating');
   beatButton.setAttribute('aria-pressed', 'false');
@@ -385,29 +396,50 @@ function toggleBeat(button, song) {
   if (!song.bpm) return;
 
   const beats = beatsPerBar(song);
-  const beat = 60000 / song.bpm;
-  const bar = beat * beats;
+  const beat = 60 / song.bpm;
+  const total = beat * beats * BARS;
 
   beatButton = button;
   button.classList.add('beating');
   button.setAttribute('aria-pressed', 'true');
 
   // The tick is the same count-in a drummer would hear, unless it is muted.
-  if (!muted) scheduleClicks(song.bpm, beats * BARS);
+  const context = muted ? null : clickContext();
+  const start = context ? scheduleClicks(song.bpm, beats * BARS) : null;
 
   // A moving pulse is not for everyone; a still ring says the same thing.
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-    window.setTimeout(stopBeat, bar * BARS);
+    window.setTimeout(stopBeat, total * 1000 + CLICK_LEAD * 1000);
     return;
   }
 
   // Four bars: long enough to settle into the feel before counting the band in.
-  beatAnimation = button.animate(beatKeyframes(beats), {
-    duration: bar,
-    iterations: BARS,
-    easing: 'ease-out',
-  });
-  beatAnimation.onfinish = stopBeat;
+  // The flash watches the same clock the ticks were queued on and pulses when the
+  // speakers reach each beat, so it cannot run ahead of the click or trail it,
+  // whatever delay the device's audio path adds.
+  const origin = start ?? performance.now() / 1000 + CLICK_LEAD;
+  let shown = null;
+
+  const frame = () => {
+    const heard = context ? heardTime(context) : performance.now() / 1000;
+    const index = Math.floor((heard - origin) / beat);
+    if (index !== shown) {
+      shown = index;
+      if (index >= beats * BARS) {
+        stopBeat();
+        return;
+      }
+      if (index >= 0) {
+        button.animate(PULSE_SHAPE, { duration: Math.min(beat * 450, 400), easing: 'ease-out' });
+      }
+    }
+    beatFrame = requestAnimationFrame(frame);
+  };
+  beatFrame = requestAnimationFrame(frame);
+
+  // If the audio clock never starts — no sound allowed, or a stalled context —
+  // stop anyway rather than leaving the number red for good.
+  beatTimer = window.setTimeout(stopBeat, (total + 2) * 1000);
 }
 
 function bpmButton(song) {
@@ -425,6 +457,7 @@ function bpmButton(song) {
 
 function songRow(song) {
   const row = document.createElement('tr');
+  row.dataset.id = song.id;
 
   const title = document.createElement('td');
   title.className = 'title';
@@ -434,7 +467,7 @@ function songRow(song) {
   title.append(titleText);
 
   const artist = document.createElement('td');
-  artist.textContent = song.artist;
+  artist.textContent = song.artist || '—';
 
   const key = document.createElement('td');
   key.className = 'num key';
@@ -628,6 +661,8 @@ form.addEventListener('submit', async event => {
 
     if (!response.ok) {
       setStatus(data.error ?? 'Lookup failed.', 'error');
+      // The title stays in the box, so it can be saved exactly as typed.
+      if (response.status === 404) offerManualAdd(title);
       return;
     }
 
@@ -646,6 +681,39 @@ form.addEventListener('submit', async event => {
     input.focus();
   }
 });
+
+// The lookup found nothing, so offer to save the typed title as it stands,
+// then open the new row for the artist, key and tempo to be filled in.
+function offerManualAdd(title) {
+  const button = makeButton('Add it by hand', 'secondary', `Add “${title}” without looking it up`);
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    setStatus(`Adding “${title}” by hand…`, 'busy');
+
+    try {
+      const response = await fetch('/api/songs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title, manual: true }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus(data.error ?? 'Could not add that song.', 'error');
+        return;
+      }
+
+      input.value = '';
+      await loadSongs();
+      setStatus(`Added “${data.song.title}” by hand — fill in the artist, key and tempo, then Save.`, 'success');
+      rows.querySelector(`tr[data-id="${data.song.id}"] button.edit`)?.click();
+    } catch {
+      setStatus('Could not reach the server. Try again.', 'error');
+    }
+  });
+
+  status.append(' ', button);
+}
 
 // --- Batch add -----------------------------------------------------------
 

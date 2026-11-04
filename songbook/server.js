@@ -26,6 +26,7 @@ import {
   setlistCsv,
   setlistPrintPage,
   exportFilename,
+  libraryPrintPage,
   libraryJson,
   libraryFilename,
 } from './src/export.js';
@@ -106,6 +107,9 @@ async function serveStatic(pathname, response) {
     response.writeHead(200, {
       'content-type': MIME[extname(filePath)] ?? 'application/octet-stream',
       'content-length': file.length,
+      // The file names carry no version, so let the browser check back rather
+      // than serving yesterday's script until someone hard-reloads.
+      'cache-control': 'no-cache, must-revalidate',
     });
     response.end(file);
   } catch {
@@ -119,6 +123,9 @@ async function handleAddSong(request, response) {
 
   if (!title) return sendJson(response, 400, { error: 'Enter a song title.' });
   if (title.length > 200) return sendJson(response, 400, { error: 'That title is too long.' });
+
+  // Nothing could be found online, so the row is saved exactly as typed.
+  if (body.manual === true) return addSongByHand(title, response);
 
   let match;
   try {
@@ -146,6 +153,33 @@ async function handleAddSong(request, response) {
     song,
     match: { confidence: match.confidence, audioFeatures: match.audioFeatures },
   });
+}
+
+// A song the lookup could not identify is stored as typed rather than guessed:
+// "Title - Artist" still fills both columns, and the key, tempo and link are
+// left empty for the band to fill in with Edit.
+function addSongByHand(typed, response) {
+  const split = typed.match(/^(.*\S)\s+[-\u2013\u2014]\s+(.+)$/);
+  const title = (split ? split[1] : typed).trim();
+  const artist = split ? split[2].trim() : '';
+
+  if (!title) return sendJson(response, 400, { error: 'Enter a song title.' });
+  if (artist.length > 200) return sendJson(response, 400, { error: 'That artist name is too long.' });
+
+  const existing = findByTitleArtist(title, artist);
+  if (existing) return sendJson(response, 409, { error: `“${existing.title}” is already in your list.`, song: existing });
+
+  const song = insertSong({
+    title,
+    artist,
+    album: null,
+    musicalKey: null,
+    bpm: null,
+    isrc: null,
+    spotifyUrl: null,
+    youtubeUrl: null,
+  });
+  return sendJson(response, 201, { song, manual: true });
 }
 
 // null clears the link; undefined means it was not a YouTube URL at all.
@@ -351,6 +385,13 @@ const server = createServer(async (request, response) => {
         contentType: 'application/json; charset=utf-8',
         filename: libraryFilename(),
         body: libraryJson(listSongs(), setlists),
+      });
+    }
+    // The whole list on one printable page, without building a setlist first.
+    if (pathname === '/api/library/print' && request.method === 'GET') {
+      return sendDocument(response, {
+        contentType: 'text/html; charset=utf-8',
+        body: libraryPrintPage(listSongs()),
       });
     }
     if (pathname === '/api/songs' && request.method === 'GET') {

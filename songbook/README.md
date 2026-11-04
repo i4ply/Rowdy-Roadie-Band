@@ -57,6 +57,15 @@ named the artist. Its database does not cover every recording: in that case the
 song is still added with the correct artist and `—` for key and BPM rather than
 storing a cover's tempo.
 
+Titles are compared with the clipped spelling read as the same word, so
+`Hard Working Man` finds `Hard Workin' Man` rather than reporting a well-known
+song as missing.
+
+When a title matches nothing at all, the app says so and offers **Add it by
+hand**: the title you typed is kept and saved exactly as it stands — a typed
+`Title - Artist` fills both columns — with `—` for key and tempo, and the row
+opens ready to fill in. Nothing has to be retyped.
+
 ### Setlists
 
 Create a setlist, select it, then use the **Add** button on any song to build it
@@ -75,6 +84,13 @@ is the size that prints, and is remembered for next time); choose “Save as PDF
 the print dialog to keep a copy.
 The page prints with narrow margins to give the list more room. The file name comes
 from the setlist name.
+
+**Print song list** in the toolbar does the same for the whole library — no setlist
+to build and no songs to add. It prints A to Z with the same number, title, key and
+tempo columns, the same A− / A+ sizing and the same narrow margins. That page also
+has an **Artist** tick-box: with it on the artist sits between the title and the key,
+handy for checking a chord chart; turn it off and the page matches a setlist print
+exactly. The choice is remembered, like the type size.
 
 ### Batch adding
 
@@ -103,7 +119,9 @@ oldest-first, a second for newest, a third back to the default order.
 stops, so you can see the feel before counting the band in. Every beat flashes
 the same, like a click track — no accent — so what you see is the pulse itself. While it
 runs the number is red, so a glance across the list finds the tempo you are
-counting. It also clicks: a short tick on every beat at the same tempo, so the list works
+counting. It also clicks: a short tick on every beat at the same tempo, and the
+number lights on that tick rather than a moment before it, so what you see and
+what you hear are the same beat — the list works
 as a click track without leaving the page. **Mute click** in the toolbar silences
 the sound and leaves the flash running; the choice is remembered in the browser.
 The same button sits in every setlist row, next to the key, so the count-in can
@@ -171,11 +189,12 @@ the row and re-add it with the artist.
 | Method | Route | Description |
 | --- | --- | --- |
 | `GET` | `/api/songs` | List every song. |
-| `POST` | `/api/songs` | `{"title": "Hotel California"}` — looks the song up, stores it, returns `201` with the row. |
+| `POST` | `/api/songs` | `{"title": "Hotel California"}` — looks the song up, stores it, returns `201` with the row. Send `{"title": "…", "manual": true}` to skip the lookup and save the typed title as it stands (key, tempo and link stay empty). |
 | `PATCH` | `/api/songs/:id` | Correct a row: any of `title`, `artist`, `key`, `bpm`, `youtubeUrl` (send `""` or `null` to clear key/BPM/link). Returns the updated row. |
 | `POST` | `/api/songs/:id/youtube` | Look the song up on YouTube and save the link; `404` when no video is found. |
 | `DELETE` | `/api/songs/:id` | Remove a song, `204` on success. |
 | `GET` | `/api/library/export` | Download the whole song library and its setlists as JSON — every stored field, in the shape `/api/import` reads back. |
+| `GET` | `/api/library/print` | The whole song list as a printable page, A to Z: number, title, artist (toggleable), key, tempo. |
 | `GET` | `/api/setlists` | List setlists with song counts. |
 | `POST` | `/api/setlists` | `{"name": "Friday"}` — create a setlist. |
 | `GET` | `/api/setlists/:id` | One setlist with its songs in order. |
