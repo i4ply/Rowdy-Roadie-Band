@@ -49,7 +49,10 @@ const WEIGHT = {
 };
 const MIN_SCORE_WITHOUT_IDENTITY = 45;
 
-const PITCH_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+// Sharps are spelled as their flat equivalents. It is the same pitch either
+// way, and a flat is the spelling a band reads off a chart far more often than
+// the sharp — nobody says "A sharp" when they mean the B flat they are playing.
+const PITCH_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
 export class LookupError extends Error {
   constructor(message, { status = 404, candidates = [] } = {}) {
