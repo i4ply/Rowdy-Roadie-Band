@@ -8,7 +8,7 @@ when you add a song title.
 ## The live site
 
 The band uses the hosted copy:
-<https://site-0e184ac6e03a461f957fe7dc51a1ea6e.freebuff.page>
+<https://rowdyroadieband.freebuff.page>
 
 Older preview deployments keep their own URL and their own D1 database, so
 nothing tried there touches the band's list. Share only the link above.
