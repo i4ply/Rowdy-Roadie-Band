@@ -1,4 +1,4 @@
-# The Rowdy Roadie Band — song list
+# The Rowdy Roadie Band — Song List
 
 A band song list that looks up the artist, musical key, BPM and a YouTube video for
 each title, and builds printable setlists.
