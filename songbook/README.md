@@ -139,11 +139,12 @@ Escape clears the box.
 ### YouTube links
 
 Every song can carry a YouTube link. When a song is added the app searches YouTube
-and saves the first result, skipping karaoke and cover uploads — a wrong link is
-worse than none, so anything doubtful is left blank. The ▶ button in the table and
-in a setlist opens it. **Find missing YouTube links** fills in the rest one at a
-time; it is safe to run again, and any row can be given a link by hand with
-**Edit**.
+and saves the first result, skipping karaoke, instrumental and cover uploads — a
+wrong link is worse than none. An official lyric video is used only when nothing
+better turns up, and a row is left blank only when there is no usable video at
+all. The ▶ button in the table and in a setlist opens it. **Find missing YouTube
+links** fills in the rest one at a time; it is safe to run again, and any row can
+be given a link by hand with **Edit**.
 
 YouTube has no free API, so this reads its public results page. That can be
 throttled from a busy address, in which case the song is added without a link and
