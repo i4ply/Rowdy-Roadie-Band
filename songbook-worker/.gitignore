@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+data/library.json
+data/wrangler.log
+data/wrangler.pid
