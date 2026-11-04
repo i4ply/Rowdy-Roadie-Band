@@ -115,7 +115,9 @@ edited stamp, so `created_at` never changes underneath a row. The list is
 newest-first by default, and the column sorts like the rest: one click for
 oldest-first, a second for newest, a third back to the default order.
 
-### Feeling the tempoClick a BPM number and it flashes once per beat at that tempo — four bars, then it
+### Feeling the tempo
+
+Click a BPM number and it flashes once per beat at that tempo — four bars, then it
 stops, so you can see the feel before counting the band in. Every beat flashes
 the same, like a click track — no accent — so what you see is the pulse itself. While it
 runs the number is red, so a glance across the list finds the tempo you are
