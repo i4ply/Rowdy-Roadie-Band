@@ -690,17 +690,15 @@ a.button:focus-visible {
 
 .setlist-title {
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Show the whole title at full size, as the song table does: it wraps onto a
+     second line instead of being cut off with an ellipsis. */
+  overflow-wrap: anywhere;
 }
 
 .setlist-artist {
   color: var(--text-soft);
   font-size: 0.94rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .setlist-meta {
