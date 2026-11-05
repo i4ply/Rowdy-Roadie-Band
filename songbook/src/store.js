@@ -25,6 +25,7 @@ db.exec(`
     isrc TEXT,
     spotify_url TEXT,
     youtube_url TEXT,
+    notes TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT
   )
@@ -67,6 +68,13 @@ try {
   // Already present.
 }
 
+// Free-form notes per song; an unset note is stored as NULL.
+try {
+  db.exec('ALTER TABLE songs ADD COLUMN notes TEXT');
+} catch {
+  // Already present.
+}
+
 const toSong = row => ({
   id: row.id,
   title: row.title,
@@ -78,6 +86,7 @@ const toSong = row => ({
   isrc: row.isrc,
   spotifyUrl: row.spotify_url,
   youtubeUrl: row.youtube_url,
+  notes: row.notes ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -133,6 +142,7 @@ const EDITABLE_COLUMNS = {
   bpm: 'bpm',
   timeSignature: 'time_signature',
   youtubeUrl: 'youtube_url',
+  notes: 'notes',
 };
 
 export function updateSong(id, patch) {

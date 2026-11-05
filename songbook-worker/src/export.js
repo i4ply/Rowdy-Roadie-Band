@@ -31,6 +31,7 @@ export function libraryJson(songs, setlists = [], exportedAt = new Date().toISOS
         isrc: song.isrc ?? null,
         spotifyUrl: song.spotifyUrl ?? null,
         youtubeUrl: song.youtubeUrl ?? null,
+        notes: song.notes ?? null,
         createdAt: song.createdAt ?? null,
       })),
       // Setlist songs are named rather than numbered: ids change on a restore,
@@ -81,7 +82,7 @@ const csvField = value => {
 };
 
 export function setlistCsv(setlist) {
-  const rows = [['Position', 'Title', 'Artist', 'Key', 'BPM']];
+  const rows = [['Position', 'Title', 'Artist', 'Key', 'BPM', 'Notes']];
   (setlist.songs ?? []).forEach((entry, index) => {
     rows.push([
       index + 1,
@@ -89,6 +90,7 @@ export function setlistCsv(setlist) {
       entry.song.artist,
       entry.song.key ?? '',
       entry.song.bpm ?? '',
+      entry.song.notes ?? '',
     ]);
   });
   // A BOM so Excel reads the file as UTF-8, and CRLF because that is what it

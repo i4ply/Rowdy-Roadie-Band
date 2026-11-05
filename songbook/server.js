@@ -251,6 +251,15 @@ async function handleUpdateSong(id, request, response) {
     }
   }
 
+  // A free-form note: anything worth remembering that has no column of its own.
+  if ('notes' in body) {
+    const value = String(body.notes ?? '').trim();
+    if (value.length > 500) {
+      return sendJson(response, 400, { error: 'That note is too long — keep it under 500 characters.' });
+    }
+    patch.notes = value === '' ? null : value;
+  }
+
   if (Object.keys(patch).length === 0) {
     return sendJson(response, 400, { error: 'Nothing to update.' });
   }

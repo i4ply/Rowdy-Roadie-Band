@@ -144,6 +144,11 @@ function startEdit(song, row) {
       'aria-label': 'Bar length, like 3/4',
       placeholder: '4/4',
     }),
+    notes: makeInput(song.notes, 'row-input', {
+      maxlength: '500',
+      'aria-label': 'Notes, etc',
+      placeholder: 'Notes, etc',
+    }),
   };
 
   const editRow = document.createElement('tr');
@@ -166,6 +171,12 @@ function startEdit(song, row) {
 
   // Keep the columns lined up while editing; the date is not editable.
   editRow.append(addedCell(song));
+
+  // The note keeps its own column while the row is open for editing.
+  const noteCell = document.createElement('td');
+  noteCell.className = 'notes';
+  noteCell.append(fields.notes);
+  editRow.append(noteCell);
 
   const actions = document.createElement('td');
   actions.className = 'actions';
@@ -191,6 +202,7 @@ function startEdit(song, row) {
           bpm: fields.bpm.value.trim(),
           timeSignature: fields.signature.value.trim(),
           youtubeUrl: fields.youtubeUrl.value.trim(),
+          notes: fields.notes.value.trim(),
         }),
       });
       const data = await response.json();
@@ -265,6 +277,57 @@ function addedCell(song) {
     : 'This song has no date recorded';
 
   return cell;
+}
+
+// A free-form note per song — "capo 3", "starts on the drums", "new ending" —
+// typed straight into the row and saved when the box is left.
+function saveNotes(song, field) {
+  const value = field.value.trim();
+  if (value === (song.notes ?? '')) return;
+
+  field.disabled = true;
+  fetch(`/api/songs/${song.id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ notes: value }),
+  })
+    .then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? 'Could not save that note.');
+      // Keep the row in memory in step, so leaving it and coming back does not
+      // offer to save the old note again.
+      song.notes = data.song.notes;
+      field.value = song.notes ?? '';
+      setStatus(`Saved the note on “${song.title}”.`, 'success');
+    })
+    .catch(error => {
+      field.value = song.notes ?? '';
+      setStatus(error?.message || 'Could not reach the server. Try again.', 'error');
+    })
+    .finally(() => {
+      field.disabled = false;
+    });
+}
+
+function notesField(song) {
+  const field = makeInput(song.notes, 'note-input', {
+    maxlength: '500',
+    placeholder: '—',
+    'aria-label': `Notes, etc for ${song.title}`,
+    title: 'Anything worth remembering — capo, ending, who counts it in',
+  });
+  field.addEventListener('change', () => saveNotes(song, field));
+  field.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      field.blur();
+    }
+    if (event.key === 'Escape') {
+      field.value = song.notes ?? '';
+      field.blur();
+    }
+  });
+  return field;
 }
 
 // Clicking a tempo flashes the number once per beat, so the pulse carries the
@@ -506,6 +569,10 @@ function songRow(song, used = new Set()) {
 
   const added = addedCell(song);
 
+  const notes = document.createElement('td');
+  notes.className = 'notes';
+  notes.append(notesField(song));
+
   const actions = document.createElement('td');
   actions.className = 'actions';
   const add = makeButton('Add', 'add', `Add ${song.title} to the setlist`);
@@ -527,7 +594,7 @@ function songRow(song, used = new Set()) {
 
   actions.append(add, edit, remove);
 
-  row.append(title, artist, key, bpm, youtube, added, actions);
+  row.append(title, artist, key, bpm, youtube, added, notes, actions);
   return row;
 }
 
@@ -611,6 +678,7 @@ const matchesFilter = song => {
   if (song.title.toLowerCase().includes(raw)) return true;
   if (song.artist.toLowerCase().includes(raw)) return true;
   if (song.key && song.key.toLowerCase().includes(raw)) return true;
+  if (song.notes && song.notes.toLowerCase().includes(raw)) return true;
 
   // A bare number is a tempo, matched exactly so "90" does not also return 190.
   const tempo = raw.replace(/\s*bpm$/, '').trim();

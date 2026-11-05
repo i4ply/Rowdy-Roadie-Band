@@ -366,6 +366,43 @@ td.title {
   white-space: nowrap;
 }
 
+/* A free-form note per song. The box is always there to type into, but it stays
+   quiet — no visible border, a dash when empty — until it is used or hovered,
+   so a blank column does not read as a form waiting to be filled in. */
+td.notes {
+  width: 10rem;
+}
+
+.notes-head {
+  white-space: nowrap;
+}
+
+.note-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.note-input::placeholder {
+  color: #4b5568;
+}
+
+.note-input:hover {
+  border-color: var(--line);
+}
+
+.note-input:focus {
+  border-color: var(--accent);
+  background: #0d1119;
+  outline: none;
+}
+
 .empty {
   margin: 0;
   padding: 2rem 1rem;

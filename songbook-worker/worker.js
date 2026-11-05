@@ -191,6 +191,13 @@ async function handleUpdateSong(db, id, request) {
     }
   }
 
+  // A free-form note: anything worth remembering that has no column of its own.
+  if ('notes' in body) {
+    const value = String(body.notes ?? '').trim();
+    if (value.length > 500) return json({ error: 'That note is too long — keep it under 500 characters.' }, 400);
+    patch.notes = value === '' ? null : value;
+  }
+
   if (Object.keys(patch).length === 0) return json({ error: 'Nothing to update.' }, 400);
 
   const song = await updateSong(db, id, patch);

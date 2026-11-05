@@ -13,6 +13,7 @@ const SCHEMA = [
     isrc TEXT,
     spotify_url TEXT,
     youtube_url TEXT,
+    notes TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT
   )`,
@@ -58,6 +59,12 @@ export function ensureSchema(db) {
         } catch {
           // Already present.
         }
+        // Free-form notes per song; an unset note is stored as NULL.
+        try {
+          await db.prepare('ALTER TABLE songs ADD COLUMN notes TEXT').run();
+        } catch {
+          // Already present.
+        }
       })
       .catch(error => {
         schemaReady = null;
@@ -78,6 +85,7 @@ const toSong = row => ({
   isrc: row.isrc,
   spotifyUrl: row.spotify_url,
   youtubeUrl: row.youtube_url,
+  notes: row.notes ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -138,6 +146,7 @@ const EDITABLE_COLUMNS = {
   bpm: 'bpm',
   timeSignature: 'time_signature',
   youtubeUrl: 'youtube_url',
+  notes: 'notes',
 };
 
 export async function updateSong(db, id, patch) {
@@ -181,8 +190,8 @@ export async function importSongs(db, rows) {
     statements.push(
       db
         .prepare(`
-          INSERT OR IGNORE INTO songs (title, artist, album, musical_key, bpm, isrc, spotify_url, youtube_url, created_at, time_signature)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), ?)
+          INSERT OR IGNORE INTO songs (title, artist, album, musical_key, bpm, isrc, spotify_url, youtube_url, created_at, time_signature, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), ?, ?)
         `)
         .bind(
           title,
@@ -195,6 +204,7 @@ export async function importSongs(db, rows) {
           row.youtube_url ?? row.youtubeUrl ?? null,
           row.created_at ?? row.createdAt ?? null,
           row.time_signature ?? row.timeSignature ?? null,
+          row.notes ?? null,
         ),
     );
   }
