@@ -125,7 +125,7 @@ const escapeHtml = value =>
 
 // The printed layout is shared: a setlist and the whole song list differ only in
 // what seeds the rows and the heading above them.
-function printPage({ heading, songs, emptyMessage, artist = false }) {
+function printPage({ heading, songs, emptyMessage, artist = false, notes = false }) {
   const rows = songs
     .map(
       (song, index) => `
@@ -135,6 +135,7 @@ function printPage({ heading, songs, emptyMessage, artist = false }) {
         ${artist ? `<span class="artist">${escapeHtml(song.artist ?? '')}</span>` : ''}
         <span class="key">${escapeHtml(song.key ?? '—')}</span>
         <span class="tempo">${song.bpm ?? ''}</span>
+        ${notes && song.notes ? `<span class="note">${escapeHtml(song.notes)}</span>` : ''}
       </li>`,
     )
     .join('');
@@ -224,6 +225,18 @@ function printPage({ heading, songs, emptyMessage, artist = false }) {
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
+      /* A setlist's notes print under their song: who is singing it, how it
+         kicks off, anything worth seeing from the music stand. They sit on their
+         own line so a long note never squeezes the title. */
+      .note {
+        grid-column: 2 / -1;
+        color: #474d59;
+        font-size: 0.86em;
+        font-style: italic;
+        line-height: 1.35;
+        overflow-wrap: break-word;
+      }
+      li:has(.note) { row-gap: 0.12rem; }
       .empty { color: #5c626e; }
       @media (max-width: 34rem) {
         li { grid-template-columns: 1.5rem minmax(0, 1fr) 3rem 2.5rem; font-size: 0.95rem; }
@@ -333,6 +346,9 @@ export function setlistPrintPage(setlist) {
     heading: setlist.name,
     songs: (setlist.songs ?? []).map(entry => entry.song),
     emptyMessage: 'This setlist is empty.',
+    // What the band wrote on each song prints with it; the whole-library page
+    // stays number, title, artist, key, tempo.
+    notes: true,
   });
 }
 
