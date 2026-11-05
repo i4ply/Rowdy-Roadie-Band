@@ -298,6 +298,16 @@ function saveNotes(song, field) {
       // offer to save the old note again.
       song.notes = data.song.notes;
       field.value = song.notes ?? '';
+      // The same song is on screen twice — in the list and in the setlist being
+      // played — so every copy of its note moves together, not just the box
+      // that was typed in.
+      for (const copy of songs) if (copy.id === song.id) copy.notes = song.notes;
+      for (const entry of activeSetlist?.songs ?? []) {
+        if (entry.song?.id === song.id) entry.song.notes = song.notes;
+      }
+      for (const box of document.querySelectorAll(`input.note-input[data-song-id="${song.id}"]`)) {
+        if (box !== field) box.value = song.notes ?? '';
+      }
       setStatus(`Saved the note on “${song.title}”.`, 'success');
     })
     .catch(error => {
@@ -316,6 +326,7 @@ function notesField(song) {
     'aria-label': `Notes, etc for ${song.title}`,
     title: 'Anything worth remembering — capo, ending, who counts it in',
   });
+  field.dataset.songId = String(song.id);
   field.addEventListener('change', () => saveNotes(song, field));
   field.addEventListener('keydown', event => {
     if (event.key === 'Enter') {
@@ -903,12 +914,12 @@ function renderSetlist() {
     meta.className = 'setlist-meta';
     meta.append(...describeParts(entry.song));
 
-    // The song's note, on its own line under the row, so anything the band
-    // wrote down reads while the set is being played rather than only in the
-    // big list above.
-    const note = document.createElement('span');
-    note.className = 'setlist-note';
-    note.textContent = entry.song.notes ?? '';
+    // The song's note, on its own line under the row and editable right here:
+    // it is the same box as in the song list above, so something can be written
+    // down the moment the band remembers it. Pressing Enter or leaving the box
+    // saves it; Escape puts the old note back.
+    const note = notesField(entry.song);
+    note.classList.add('setlist-note');
 
     const actions = document.createElement('span');
     actions.className = 'setlist-actions';
@@ -923,8 +934,7 @@ function renderSetlist() {
     remove.addEventListener('click', () => removeEntry(entry));
     actions.append(up, down, remove);
 
-    item.append(position, title, meta, actions);
-    if (entry.song.notes) item.append(note);
+    item.append(position, title, meta, actions, note);
     setlistSongs.append(item);
   });
 }

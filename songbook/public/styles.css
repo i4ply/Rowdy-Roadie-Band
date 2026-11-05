@@ -712,7 +712,8 @@ a.button:focus-visible {
 .setlist-songs li {
   display: grid;
   grid-template-columns: 2.1rem minmax(0, 1fr) auto auto;
-  gap: 0.85rem;
+  /* Rows are tight: the note under the title is part of the same entry. */
+  gap: 0.15rem 0.85rem;
   align-items: center;
   padding: 0.68rem 0.95rem;
   border-bottom: 1px solid var(--line-soft);
@@ -755,19 +756,17 @@ a.button:focus-visible {
 }
 
 /* The song's note, under the row it belongs to and starting where the title
-   starts, so it reads as part of that song and not as a column. */
+   starts, so it reads as part of that song and not as a column. It is the same
+   editable box as in the song list, pulled left so its text lines up with the
+   title rather than sitting inside the box's padding. */
 .setlist-note {
   grid-column: 2 / -1;
+  width: calc(100% + 0.4rem);
+  margin-left: -0.4rem;
   color: var(--text-soft);
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-style: italic;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-/* Two lines are one entry, not two, so the note sits close to the row above. */
-.setlist-songs li:has(.setlist-note) {
-  row-gap: 0.15rem;
+  text-overflow: ellipsis;
 }
 
 .setlist-actions {
