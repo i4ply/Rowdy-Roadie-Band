@@ -899,10 +899,6 @@ function renderSetlist() {
     title.className = 'setlist-title';
     title.textContent = entry.song.title;
 
-    const artist = document.createElement('span');
-    artist.className = 'setlist-artist';
-    artist.textContent = entry.song.artist;
-
     const meta = document.createElement('span');
     meta.className = 'setlist-meta';
     meta.append(...describeParts(entry.song));
@@ -927,7 +923,7 @@ function renderSetlist() {
     remove.addEventListener('click', () => removeEntry(entry));
     actions.append(up, down, remove);
 
-    item.append(position, title, artist, meta, actions);
+    item.append(position, title, meta, actions);
     if (entry.song.notes) item.append(note);
     setlistSongs.append(item);
   });
