@@ -907,6 +907,13 @@ function renderSetlist() {
     meta.className = 'setlist-meta';
     meta.append(...describeParts(entry.song));
 
+    // The song's note, on its own line under the row, so anything the band
+    // wrote down reads while the set is being played rather than only in the
+    // big list above.
+    const note = document.createElement('span');
+    note.className = 'setlist-note';
+    note.textContent = entry.song.notes ?? '';
+
     const actions = document.createElement('span');
     actions.className = 'setlist-actions';
     if (entry.song.youtubeUrl) actions.append(youTubeLink(entry.song.youtubeUrl, entry.song.title));
@@ -921,6 +928,7 @@ function renderSetlist() {
     actions.append(up, down, remove);
 
     item.append(position, title, artist, meta, actions);
+    if (entry.song.notes) item.append(note);
     setlistSongs.append(item);
   });
 }

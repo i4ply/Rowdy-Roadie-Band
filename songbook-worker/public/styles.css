@@ -760,6 +760,22 @@ a.button:focus-visible {
   white-space: nowrap;
 }
 
+/* The song's note, under the row it belongs to and starting where the title
+   starts, so it reads as part of that song and not as a column. */
+.setlist-note {
+  grid-column: 2 / -1;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-style: italic;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* Two lines are one entry, not two, so the note sits close to the row above. */
+.setlist-songs li:has(.setlist-note) {
+  row-gap: 0.15rem;
+}
+
 .setlist-actions {
   display: flex;
   gap: 0.3rem;
@@ -858,6 +874,12 @@ button.move:disabled {
   .setlist-meta {
     grid-area: meta;
     justify-self: end;
+  }
+
+  /* On a phone the row is three columns wide, so the note starts at the
+     number and runs the full width underneath. */
+  .setlist-note {
+    grid-column: 1 / -1;
   }
 
   .setlist-actions {
