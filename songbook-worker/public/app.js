@@ -319,10 +319,12 @@ function saveNotes(song, field) {
     });
 }
 
-function notesField(song) {
+// The box names itself where there is no column heading above it, so an empty
+// note in a setlist row is not just a dash with no explanation.
+function notesField(song, placeholder = '—') {
   const field = makeInput(song.notes, 'note-input', {
     maxlength: '500',
-    placeholder: '—',
+    placeholder,
     'aria-label': `Notes, etc for ${song.title}`,
     title: 'Anything worth remembering — capo, ending, who counts it in',
   });
@@ -918,7 +920,7 @@ function renderSetlist() {
     // it is the same box as in the song list above, so something can be written
     // down the moment the band remembers it. Pressing Enter or leaving the box
     // saves it; Escape puts the old note back.
-    const note = notesField(entry.song);
+    const note = notesField(entry.song, 'Notes, etc');
     note.classList.add('setlist-note');
 
     const actions = document.createElement('span');
